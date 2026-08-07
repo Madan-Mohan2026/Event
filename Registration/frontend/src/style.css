@@ -1,0 +1,8 @@
+/* Master CSS Index */
+@import './styles/common.css';
+@import './styles/dashboard.css';
+@import './styles/events.css';
+@import './styles/forms.css';
+@import './styles/registration.css';
+@import './styles/attendance.css';
+@import './styles/create-event-modal.css';

@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-primary: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-primary);
+  }
+
+  body {
+    background-color: #F8FAFC;
+    color: #1E293B;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* RTIH Card & Shadow Styles */
+.rtih-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rtih-card:hover {
+  box-shadow: 0 20px 25px -5px rgba(126, 34, 206, 0.1), 0 10px 10px -5px rgba(126, 34, 206, 0.04);
+  transform: translateY(-4px);
+  border-color: #C084FC;
+}
+
+/* Primary Button Styling */
+.btn-rtih-purple {
+  background-color: #7E22CE;
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.btn-rtih-purple:hover {
+  background-color: #6B21A8;
+  box-shadow: 0 4px 14px 0 rgba(126, 34, 206, 0.39);
+}
+
+/* Input Styling */
+.rtih-select {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  color: #334155;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.rtih-select:focus {
+  outline: none;
+  border-color: #7E22CE;
+  box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.15);
+}
