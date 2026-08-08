@@ -90,10 +90,9 @@ export async function renderAdminParticipantVerification() {
 
   async function performParticipantLookup(queryVal, typeVal) {
     try {
-      const activeEvId = localStorage.getItem('current_event_id') || state.currentEvent?._id || '';
       const res = await apiFetch('/api/registrations/verify-lookup', {
         method: 'POST',
-        body: JSON.stringify({ query: queryVal, type: typeVal, eventId: activeEvId })
+        body: JSON.stringify({ query: queryVal, type: typeVal })
       });
       const data = await res.json();
       if (res.ok && data.success && data.participant) {

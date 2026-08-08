@@ -33,8 +33,8 @@ router.post('/manual-checkin', authenticateJWT as any, manualMarkAttendance as a
 // Single registration details lookup endpoint
 router.get('/details/:id', authenticateJWT as any, getSingleRegistrationDetails as any);
 
-// Mobile Admin Participant Verification Lookup endpoint
-router.post('/verify-lookup', lookupParticipantForVerification as any);
+// Mobile Admin Participant Verification Lookup endpoint (JWT Authenticated)
+router.post('/verify-lookup', authenticateJWT as any, lookupParticipantForVerification as any);
 
 // Direct QR Scanner Action Endpoints
 router.post('/scan-kit', scanKit as any);

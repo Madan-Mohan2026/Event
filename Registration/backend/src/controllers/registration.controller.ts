@@ -2098,7 +2098,7 @@ export const scanFood = async (req: Request, res: Response): Promise<void> => {
  */
 export const lookupParticipantForVerification = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { query, eventId } = req.body;
+    const { query } = req.body;
     const searchVal = String(query || '').trim();
 
     if (!searchVal) {
@@ -2126,29 +2126,43 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
 
     const userReq = req as AuthRequest;
     let eventFilter: any = {};
-    if (userReq.user) {
-      const isSuperAdmin = userReq.user.role === 'super_admin' || (userReq.user.role as any) === 'superadmin';
-      if (!isSuperAdmin) {
-        const userDoc = await User.findById(userReq.user.id).lean();
-        const assignedIds = userDoc?.assignedEventIds?.map(id => String(id)) || (userDoc?.assignedEventId ? [String(userDoc.assignedEventId)] : []);
-        const targetEventId = eventId || userDoc?.assignedEventId || (assignedIds.length > 0 ? assignedIds[0] : null);
-        if (targetEventId) {
-          if (!assignedIds.includes(String(targetEventId))) {
-            res.status(403).json({ error: 'Access denied. You are not authorized to view participants for this event.' });
-            return;
-          }
-          eventFilter = { eventId: String(targetEventId) };
-        } else if (assignedIds.length > 0) {
-          eventFilter = { eventId: { $in: assignedIds } };
-        } else {
-          eventFilter = { eventId: { $in: [] } };
-        }
-      } else if (eventId) {
-        eventFilter = { eventId: String(eventId) };
-      }
+
+    if (!userReq.user) {
+      res.status(401).json({ error: 'Authentication required for participant verification.' });
+      return;
     }
 
-    // Primary search: Fast MongoDB B-Tree index lookup
+    const isSuperAdmin = userReq.user.role === 'super_admin' || (userReq.user.role as any) === 'superadmin';
+    if (!isSuperAdmin) {
+      // Security Requirement: req.user.activeEventId from authenticated JWT is the SINGLE SOURCE OF TRUTH.
+      // Never allow req.body.eventId or frontend values to override authorization.
+      const activeEventId = userReq.user.activeEventId;
+
+      if (!activeEventId) {
+        res.status(403).json({ error: 'No active event is associated with this admin session.' });
+        return;
+      }
+
+      const userDoc = await User.findById(userReq.user.id).lean();
+      const assignedIds = [
+        ...(userDoc?.assignedEventId ? [String(userDoc.assignedEventId)] : []),
+        ...(Array.isArray(userDoc?.assignedEventIds) ? userDoc.assignedEventIds.map(String) : [])
+      ];
+
+      if (!assignedIds.includes(String(activeEventId))) {
+        res.status(403).json({ error: 'You are not authorized to access this event.' });
+        return;
+      }
+
+      eventFilter = { eventId: String(activeEventId) };
+    } else if (req.body.eventId) {
+      eventFilter = { eventId: String(req.body.eventId) };
+    }
+
+    // Development server logging for audit trace
+    console.log(`[ADMIN EVENT SCOPE] Admin: ${userReq.user.id} | Role: ${userReq.user.role} | Active Event: ${userReq.user.activeEventId || 'N/A'} | Filter Event: ${eventFilter.eventId || 'ALL'}`);
+
+    // Primary search: Fast MongoDB B-Tree index lookup (strictly event-scoped)
     let registration = await Registration.findOne({
       ...eventFilter,
       $or: [
@@ -2159,7 +2173,7 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
       ]
     });
 
-    // Secondary fallback search: formData indexed keys lookup
+    // Secondary fallback search: formData indexed keys lookup (strictly event-scoped)
     if (!registration) {
       registration = await Registration.findOne({
         ...eventFilter,

@@ -207,10 +207,15 @@ export const qrLogin = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // ── Step 6: Issue JWT (same shape as regular login) ──
+    // ── Step 6: Issue JWT (same shape as regular login + activeEventId) ──
     const jwtSecret = process.env.JWT_SECRET || 'super_secret_government_key_12345';
     const token = jwt.sign(
-      { id: user._id, username: user.username, role: user.role },
+      {
+        id: user._id,
+        username: user.username,
+        role: user.role,
+        activeEventId: String(qrRecord.eventId)
+      },
       jwtSecret,
       { expiresIn: '8h' }
     );
@@ -230,6 +235,7 @@ export const qrLogin = async (req: Request, res: Response): Promise<void> => {
         username: user.username,
         email: user.email,
         role: user.role,
+        activeEventId: String(qrRecord.eventId),
         assignedEventId: qrRecord.eventId,         // pre-select the scanned event
         assignedEventIds: user.assignedEventIds || [],
       },

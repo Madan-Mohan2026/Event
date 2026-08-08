@@ -10,6 +10,7 @@ export interface AuthRequest extends Request {
     assignedEvent?: string;
     assignedEventId?: string;
     assignedEventIds?: string[];
+    activeEventId?: string;
   };
 }
 
