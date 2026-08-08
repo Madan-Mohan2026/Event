@@ -38,14 +38,15 @@ const getCorsOrigins = () => {
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
   ].filter(Boolean).map(url => (url as string).trim().replace(/\/$/, ''));
 
-  const localOrigins = [
+  const defaultOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
-    'http://127.0.0.1:5173'
+    'http://127.0.0.1:5173',
+    'https://event-admin-losq.onrender.com'
   ];
 
-  return { envOrigins, allAllowed: [...localOrigins, ...envOrigins] };
+  return { envOrigins, allAllowed: Array.from(new Set([...defaultOrigins, ...envOrigins])) };
 };
 
 app.use(cors({
@@ -62,7 +63,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS blocked for origin: ${cleanOrigin}`));
+    return callback(null, false);
   },
   credentials: true
 }));
@@ -88,6 +89,7 @@ app.get('/api/config/server-ip', (req: Request, res: Response) => {
 
 // Server-Sent Events (SSE) Stream for Real-Time Sync
 app.get('/api/realtime/stream', realtimeStreamHandler);
+app.get('/api/admin/sse-stream', realtimeStreamHandler);
 
 // Top-level direct QR scanning endpoints
 app.post('/api/scan-kit', scanKit as any);
