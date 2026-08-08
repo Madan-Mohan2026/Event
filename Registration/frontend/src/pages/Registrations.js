@@ -4,6 +4,7 @@ import { getRegistrations, getAllRegistrations } from '../services/registrationS
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { exportToExcelCSV, showAlert } from '../utils/helpers.js';
+import { API_BASE } from '../utils/constants.js';
 
 export async function renderRegistrations() {
   const hash = window.location.hash || '#registrations';
@@ -205,7 +206,7 @@ export async function renderGeneralRegistrations(activeFilters = {}) {
         const id = this.getAttribute('data-id');
         const token = state.token || localStorage.getItem('admin_token');
         try {
-          const res = await fetch(`/api/registrations/details/${id}`, {
+          const res = await fetch(`${API_BASE}/api/registrations/details/${id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const data = await res.json();
@@ -238,7 +239,7 @@ export async function renderGeneralRegistrations(activeFilters = {}) {
         const newValue = !currentlyIssued;
         const token = state.token || localStorage.getItem('admin_token');
         try {
-          const res = await fetch(`/api/registrations/${id}`, {
+          const res = await fetch(`${API_BASE}/api/registrations/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ kitIssued: newValue })

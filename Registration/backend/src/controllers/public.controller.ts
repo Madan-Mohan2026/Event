@@ -80,7 +80,8 @@ function mapToPublicEvent(ev: any, isList: boolean = true) {
 
   if (rawBanner && typeof rawBanner === 'string') {
     if (rawBanner.startsWith('/uploads')) {
-      bannerUrl = `http://localhost:5000${rawBanner}`;
+      const backendBase = process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000');
+      bannerUrl = backendBase ? `${backendBase.replace(/\/$/, '')}${rawBanner}` : rawBanner;
     } else if (rawBanner.startsWith('http://') || rawBanner.startsWith('https://')) {
       bannerUrl = rawBanner;
     } else if (rawBanner.startsWith('data:image/')) {

@@ -1,5 +1,6 @@
 import { showAlert, copyToClipboard } from './helpers.js';
 import { getPublicBaseUrl } from './qrHelpers.js';
+import { API_BASE } from './constants.js';
 
 export function formatEventDate(dateStr) {
   if (!dateStr) return 'No Date';
@@ -53,7 +54,7 @@ export function getCategoryBadgeConfig(category) {
 export function resolveImageUrl(url) {
   if (!url || typeof url !== 'string') return '';
   if (url.startsWith('/uploads')) {
-    const apiBase = window.env?.API_BASE_URL || 'http://localhost:5000';
+    const apiBase = import.meta.env.VITE_API_BASE_URL || API_BASE || 'http://localhost:5000';
     return `${apiBase.replace(/\/$/, '')}${url}`;
   }
   return url;

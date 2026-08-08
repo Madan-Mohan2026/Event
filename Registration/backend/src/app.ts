@@ -31,7 +31,41 @@ import { getLocalIpAddress, getAccessibleHostUrl } from './utils/qr.utils';
 const app: Application = express();
 
 // Standard Middleware
-app.use(cors());
+const getCorsOrigins = () => {
+  const envOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.PUBLIC_APP_URL,
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+  ].filter(Boolean).map(url => (url as string).trim().replace(/\/$/, ''));
+
+  const localOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173'
+  ];
+
+  return { envOrigins, allAllowed: [...localOrigins, ...envOrigins] };
+};
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/$/, '');
+    const { envOrigins, allAllowed } = getCorsOrigins();
+
+    if (allAllowed.includes(cleanOrigin)) {
+      return callback(null, true);
+    }
+
+    if (process.env.NODE_ENV !== 'production' && envOrigins.length === 0) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${cleanOrigin}`));
+  },
+  credentials: true
+}));
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));

@@ -1,6 +1,7 @@
 import type { EventItem, EventCategory, EventStatus, RegistrationFormData, RegistrationResult } from '../types/event';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const rawApiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 /**
  * EventService Layer - Integrated with Public Backend APIs
@@ -95,7 +96,7 @@ export class EventService {
    * Get Registration URL for an event targeting existing Public Registration Page
    */
   static getRegistrationUrl(eventId: string): string {
-    const regBaseUrl = import.meta.env.VITE_REGISTRATION_BASE_URL || 'http://localhost:5173';
+    const regBaseUrl = (import.meta.env.VITE_REGISTRATION_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
     return `${regBaseUrl}/#register/${eventId}`;
   }
 
