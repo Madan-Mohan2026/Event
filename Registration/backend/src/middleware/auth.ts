@@ -20,7 +20,7 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
     const token = authHeader.split(' ')[1];
     const jwtSecret = process.env.JWT_SECRET || 'super_secret_government_key_12345';
 
-    jwt.verify(token, jwtSecret, (err, user) => {
+    jwt.verify(token, jwtSecret, (err: jwt.VerifyErrors | null, user: any) => {
       if (err) {
         res.status(401).json({ error: 'Token is invalid or expired.' });
         return;
@@ -38,7 +38,7 @@ export const optionalAuthenticateJWT = (req: AuthRequest, _res: Response, next: 
   if (authHeader) {
     const token = authHeader.split(' ')[1];
     const jwtSecret = process.env.JWT_SECRET || 'super_secret_government_key_12345';
-    jwt.verify(token, jwtSecret, (_err, user) => {
+    jwt.verify(token, jwtSecret, (_err: jwt.VerifyErrors | null, user: any) => {
       if (user) {
         req.user = user as AuthRequest['user'];
       }
