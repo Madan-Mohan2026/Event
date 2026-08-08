@@ -43,7 +43,8 @@ const getCorsOrigins = () => {
     'http://localhost:5174',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
-    'https://event-admin-losq.onrender.com'
+    'https://event-admin-losq.onrender.com',
+    'https://event-landing.onrender.com'
   ];
 
   return { envOrigins, allAllowed: Array.from(new Set([...defaultOrigins, ...envOrigins])) };
