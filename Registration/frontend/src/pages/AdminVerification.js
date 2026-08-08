@@ -72,7 +72,7 @@ export async function renderAdminParticipantVerification() {
     document.getElementById('tab-search-reg')?.addEventListener('click', () => { currentSearchType = 'regId'; renderSearchFormView(); });
 
     document.getElementById('admin-proceed-spot-btn')?.addEventListener('click', () => {
-      const activeEvId = state.currentEvent?._id || (state.events && state.events[0]?._id) || '';
+      const activeEvId = localStorage.getItem('current_event_id') || state.currentEvent?._id || '';
       if (activeEvId) {
         navigate(`#attendance/${activeEvId}`);
       } else {
@@ -90,9 +90,10 @@ export async function renderAdminParticipantVerification() {
 
   async function performParticipantLookup(queryVal, typeVal) {
     try {
+      const activeEvId = localStorage.getItem('current_event_id') || state.currentEvent?._id || '';
       const res = await apiFetch('/api/registrations/verify-lookup', {
         method: 'POST',
-        body: JSON.stringify({ query: queryVal, type: typeVal })
+        body: JSON.stringify({ query: queryVal, type: typeVal, eventId: activeEvId })
       });
       const data = await res.json();
       if (res.ok && data.success && data.participant) {
@@ -107,7 +108,7 @@ export async function renderAdminParticipantVerification() {
 
   function renderParticipantDetailsView(p) {
     const initials = p.name ? p.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'P';
-    const eventBadge = p.eventTitle || state.currentEvent?.title || 'MEDTECH';
+    const eventBadge = p.eventTitle || state.currentEvent?.title || 'Assigned Event';
     const phone = p.phone || p.mobile || 'N/A';
     const regId = p.registrationId || 'N/A';
     const email = p.email || 'N/A';

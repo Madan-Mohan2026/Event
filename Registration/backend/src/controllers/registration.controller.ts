@@ -2098,7 +2098,7 @@ export const scanFood = async (req: Request, res: Response): Promise<void> => {
  */
 export const lookupParticipantForVerification = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { query } = req.body;
+    const { query, eventId } = req.body;
     const searchVal = String(query || '').trim();
 
     if (!searchVal) {
@@ -2131,7 +2131,20 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
       if (!isSuperAdmin) {
         const userDoc = await User.findById(userReq.user.id).lean();
         const assignedIds = userDoc?.assignedEventIds?.map(id => String(id)) || (userDoc?.assignedEventId ? [String(userDoc.assignedEventId)] : []);
-        eventFilter = { eventId: { $in: assignedIds } };
+        const targetEventId = eventId || userDoc?.assignedEventId || (assignedIds.length > 0 ? assignedIds[0] : null);
+        if (targetEventId) {
+          if (!assignedIds.includes(String(targetEventId))) {
+            res.status(403).json({ error: 'Access denied. You are not authorized to view participants for this event.' });
+            return;
+          }
+          eventFilter = { eventId: String(targetEventId) };
+        } else if (assignedIds.length > 0) {
+          eventFilter = { eventId: { $in: assignedIds } };
+        } else {
+          eventFilter = { eventId: { $in: [] } };
+        }
+      } else if (eventId) {
+        eventFilter = { eventId: String(eventId) };
       }
     }
 
@@ -2149,6 +2162,7 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
     // Secondary fallback search: formData indexed keys lookup
     if (!registration) {
       registration = await Registration.findOne({
+        ...eventFilter,
         $or: [
           { 'formData.mobile': { $in: phoneVariants } },
           { 'formData.phone': { $in: phoneVariants } },
