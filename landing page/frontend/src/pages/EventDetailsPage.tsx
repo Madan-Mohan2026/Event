@@ -124,6 +124,9 @@ export const EventDetailsPage: React.FC = () => {
                 src={event.bannerUrl}
                 alt={event.title}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+                }}
               />
               <div className="absolute top-4 left-4">
                 <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-900/80 text-white backdrop-blur-md">

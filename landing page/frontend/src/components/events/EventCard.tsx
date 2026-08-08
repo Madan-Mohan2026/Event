@@ -62,6 +62,9 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
           alt={event.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
           loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+          }}
         />
 
         {/* Status Pill Badge Floating on Top Right */}
