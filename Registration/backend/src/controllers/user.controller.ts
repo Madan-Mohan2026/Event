@@ -244,7 +244,7 @@ export const assignEvent = async (req: AuthRequest, res: Response): Promise<void
     let qrDataUrl: string | null = null;
     if (eventId) {
       try {
-        const qrResult = await generateAndSaveQR(String(user._id), eventId, superAdminUsername);
+        const qrResult = await generateAndSaveQR(String(user._id), eventId, superAdminUsername, req);
         qrDataUrl = qrResult.qrDataUrl;
       } catch (qrErr: any) {
         console.error('[QR] Failed to generate QR after assign-event:', qrErr.message);
@@ -320,7 +320,7 @@ export const assignEvents = async (req: AuthRequest, res: Response): Promise<voi
     const qrResults: { eventId: string; qrDataUrl: string }[] = [];
     for (const eid of newEventIds) {
       try {
-        const qrResult = await generateAndSaveQR(String(user._id), eid, superAdminUsername);
+        const qrResult = await generateAndSaveQR(String(user._id), eid, superAdminUsername, req);
         qrResults.push({ eventId: eid, qrDataUrl: qrResult.qrDataUrl });
       } catch (qrErr: any) {
         console.error('[QR] Failed to generate QR after assign-events:', qrErr.message);

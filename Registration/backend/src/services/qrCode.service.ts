@@ -1,16 +1,14 @@
 import { Types } from 'mongoose';
 import { QRToken, IQRToken } from '../models/qrToken.model';
-import { encryptToken, generateQrDataUrl, getLocalIpAddress } from '../utils/qr.utils';
+import { encryptToken, generateQrDataUrl, getAccessibleHostUrl } from '../utils/qr.utils';
 import { logAdminAction } from './audit.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Build the QR URL that the phone camera will open when scanned.
-// Always uses the runtime LAN IP so the QR works across IP changes.
+// Dynamically resolves to accessible host URL (LAN IP in dev, domain in prod).
 // ─────────────────────────────────────────────────────────────────────────────
-function buildQrUrl(encryptedToken: string): string {
-  const lanIp = getLocalIpAddress();
-  const frontendPort = 5173;
-  const baseUrl = `http://${lanIp}:${frontendPort}`;
+function buildQrUrl(encryptedToken: string, req?: any): string {
+  const baseUrl = getAccessibleHostUrl(req, 5173);
   return `${baseUrl}/#login?qrToken=${encodeURIComponent(encryptedToken)}`;
 }
 
@@ -21,7 +19,8 @@ function buildQrUrl(encryptedToken: string): string {
 export async function generateAndSaveQR(
   adminId: string | Types.ObjectId,
   eventId: string,
-  adminUsername: string
+  adminUsername: string,
+  req?: any
 ): Promise<{ qrDataUrl: string; encryptedToken: string }> {
   const adminIdStr = String(adminId);
 
@@ -34,7 +33,7 @@ export async function generateAndSaveQR(
   };
 
   const encryptedToken = encryptToken(payload);
-  const qrUrl = buildQrUrl(encryptedToken);
+  const qrUrl = buildQrUrl(encryptedToken, req);
   const qrDataUrl = await generateQrDataUrl(qrUrl);
 
   // Upsert: one QR per admin+event (replace if regenerating)

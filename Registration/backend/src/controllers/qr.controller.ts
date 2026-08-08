@@ -9,7 +9,7 @@ import {
   validateQRToken,
 } from '../services/qrCode.service';
 import { logAdminAction } from '../services/audit.service';
-import { generateQrDataUrl, getLocalIpAddress } from '../utils/qr.utils';
+import { generateQrDataUrl, getAccessibleHostUrl } from '../utils/qr.utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/qr/:adminId — list all QR tokens for a given admin
@@ -38,8 +38,8 @@ export const getAdminQRCodes = async (req: AuthRequest, res: Response): Promise<
     const eventMap = new Map(events.map(e => [String(e._id), (e as any).title]));
 
     const enriched = await Promise.all(qrRecords.map(async r => {
-      const lanIp = getLocalIpAddress();
-      const currentUrl = `http://${lanIp}:5173/#login?qrToken=${encodeURIComponent(r.encryptedToken)}`;
+      const baseUrl = getAccessibleHostUrl(req, 5173);
+      const currentUrl = `${baseUrl}/#login?qrToken=${encodeURIComponent(r.encryptedToken)}`;
       const liveQrDataUrl = await generateQrDataUrl(currentUrl);
 
       return {
@@ -80,8 +80,8 @@ export const getQRCode = async (req: AuthRequest, res: Response): Promise<void> 
     }
 
     const rec = records[0];
-    const lanIp = getLocalIpAddress();
-    const currentUrl = `http://${lanIp}:5173/#login?qrToken=${encodeURIComponent(rec.encryptedToken)}`;
+    const baseUrl = getAccessibleHostUrl(req, 5173);
+    const currentUrl = `${baseUrl}/#login?qrToken=${encodeURIComponent(rec.encryptedToken)}`;
     const liveQrDataUrl = await generateQrDataUrl(currentUrl);
 
     await logAdminAction(
@@ -139,7 +139,8 @@ export const regenerateQR = async (req: AuthRequest, res: Response): Promise<voi
     const { qrDataUrl, encryptedToken } = await generateAndSaveQR(
       adminId,
       eventId,
-      req.user!.username
+      req.user!.username,
+      req
     );
 
     await logAdminAction(

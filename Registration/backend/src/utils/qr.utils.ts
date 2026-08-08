@@ -36,7 +36,7 @@ export function getLocalIpAddress(): string {
     if (secondary) return secondary.address;
 
     if (candidates.length > 0) return candidates[0].address;
-  } catch (err) {}
+  } catch (err) { }
   return 'localhost';
 }
 
@@ -44,34 +44,55 @@ export function getLocalIpAddress(): string {
  * Get accessible host URL for QR code URLs (replaces localhost/127.0.0.1 with computer's LAN IP).
  */
 export function getAccessibleHostUrl(req?: any, defaultPort = 5173): string {
-  // 1. Configurable Public App URL from Environment Variables (e.g. VITE_PUBLIC_BASE_URL, PUBLIC_APP_URL, etc.)
-  const envUrl = process.env.VITE_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || process.env.APP_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
-    const trimmed = envUrl.trim().replace(/\/+$/, '');
-    if (!trimmed.includes('localhost') && !trimmed.includes('127.0.0.1')) {
-      return trimmed;
+  // ── 1. PRODUCTION / RENDER MODE ───────────────────────────────────────────
+  // Strictly use FRONTEND_URL or fallback to https://event-admin-losq.onrender.com.
+  // Never read req.get('origin'), req.get('referer'), req.get('host'), or getLocalIpAddress() in production/Render.
+  if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RENDER_SERVICE_ID) {
+    const envUrl = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || process.env.VITE_PUBLIC_BASE_URL || process.env.APP_URL;
+    if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+      const cleanUrl = envUrl.trim().replace(/\/+$/, '');
+      if (!cleanUrl.includes('localhost') && !cleanUrl.includes('127.0.0.1')) {
+        return cleanUrl;
+      }
+    }
+    return 'https://event-admin-losq.onrender.com';
+  }
+
+  // ── 2. LOCAL / DEVELOPMENT MODE (NODE_ENV !== 'production') ───────────────
+  const devEnvUrl = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || process.env.VITE_PUBLIC_BASE_URL || process.env.APP_URL;
+  if (devEnvUrl && typeof devEnvUrl === 'string' && devEnvUrl.trim()) {
+    const cleanDevUrl = devEnvUrl.trim().replace(/\/+$/, '');
+    if (!cleanDevUrl.includes('localhost') && !cleanDevUrl.includes('127.0.0.1')) {
+      return cleanDevUrl;
     }
   }
 
-  // 2. Request host header if available and not localhost / 127.0.0.1
   if (req) {
+    const originHeader = req.get('origin') || req.get('referer');
+    if (originHeader && typeof originHeader === 'string') {
+      try {
+        const parsed = new URL(originHeader);
+        if (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1' && !parsed.hostname.startsWith('192.168.') && !parsed.hostname.startsWith('10.')) {
+          return `${parsed.protocol}//${parsed.host}`;
+        }
+      } catch (e) {}
+    }
+
     const reqHost = req.get('host') || '';
-    if (reqHost) {
+    if (reqHost && !reqHost.includes('localhost') && !reqHost.includes('127.0.0.1')) {
       const parts = reqHost.split(':');
-      if (parts[0] && parts[0] !== 'localhost' && parts[0] !== '127.0.0.1') {
+      if (!parts[0].startsWith('192.168.') && !parts[0].startsWith('10.')) {
         const proto = req.protocol || 'http';
         return `${proto}://${parts[0]}:${parts[1] || defaultPort}`;
       }
     }
   }
 
-  // 3. Dynamic Active LAN IPv4 Address (e.g. http://192.168.x.x:5173)
   const localIp = getLocalIpAddress();
   if (localIp && localIp !== 'localhost' && localIp !== '127.0.0.1') {
     return `http://${localIp}:${defaultPort}`;
   }
 
-  // 4. Default fallback to localhost
   return `http://localhost:${defaultPort}`;
 }
 
@@ -180,7 +201,7 @@ export async function generateQrDataUrl(text: string): Promise<string> {
       const debugPath = path.join(__dirname, 'debug_sample_qr.png');
       fs.writeFileSync(debugPath, base64Data, 'base64');
       sampleSaved = true;
-    } catch (err) {}
+    } catch (err) { }
   }
 
   return dataUrl;
