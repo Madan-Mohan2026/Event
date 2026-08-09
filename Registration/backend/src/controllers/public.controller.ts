@@ -41,6 +41,22 @@ function mapToPublicEvent(ev: any, isList: boolean = true) {
 
   const formattedDate = startDateStr === endDateStr ? startDateStr : `${startDateStr} - ${endDateStr}`;
 
+  const regStartDateStr = ev.registrationStart
+    ? new Date(ev.registrationStart).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    : undefined;
+
+  const regEndDateStr = ev.registrationEnd
+    ? new Date(ev.registrationEnd).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    : undefined;
+
   let speakers: any[] = [];
   if (Array.isArray(ev.agenda) && ev.agenda.length > 0) {
     speakers = ev.agenda.map((sess: any, idx: number) => ({
@@ -98,6 +114,8 @@ function mapToPublicEvent(ev: any, isList: boolean = true) {
     bannerUrl,
     date: new Date(ev.date).toISOString().split('T')[0],
     formattedDate,
+    registrationStartDate: regStartDateStr,
+    registrationEndDate: regEndDateStr,
     time: ev.time ? (ev.endTime ? `${ev.time} - ${ev.endTime}` : ev.time) : '09:00 AM - 05:00 PM',
     venue: ev.location || 'Main Convention Center',
     address: ev.location || 'Main Convention Center',

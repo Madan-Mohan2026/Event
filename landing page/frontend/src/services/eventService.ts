@@ -1,6 +1,16 @@
 import type { EventItem, EventCategory, EventStatus, RegistrationFormData, RegistrationResult } from '../types/event';
 
-const rawApiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://event-hjoa.onrender.com';
+const defaultProdBackend = 'https://event-hjoa.onrender.com';
+const isLocalhost = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.')
+);
+
+const rawApiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || (isLocalhost
+  ? `${window.location.protocol}//${window.location.hostname}:5000`
+  : defaultProdBackend);
 const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 /**
@@ -96,7 +106,10 @@ export class EventService {
    * Get Registration URL for an event targeting existing Public Registration Page
    */
   static getRegistrationUrl(eventId: string): string {
-    const regBaseUrl = (import.meta.env.VITE_REGISTRATION_BASE_URL || 'https://event-admin-losq.onrender.com').replace(/\/$/, '');
+    const defaultRegUrl = isLocalhost
+      ? `${window.location.protocol}//${window.location.hostname}:5173`
+      : 'https://event-admin-losq.onrender.com';
+    const regBaseUrl = (import.meta.env.VITE_REGISTRATION_BASE_URL || defaultRegUrl).replace(/\/$/, '');
     return `${regBaseUrl}/#register/${eventId}`;
   }
 

@@ -45,6 +45,8 @@ export interface EventItem {
   bannerUrl: string;
   date: string;
   formattedDate: string;
+  registrationStartDate?: string;
+  registrationEndDate?: string;
   time: string;
   venue: string;
   address: string;
