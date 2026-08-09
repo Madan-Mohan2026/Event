@@ -25,7 +25,7 @@ export const HeroSection: React.FC = () => {
 
             {/* Headline */}
             <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-              Our <span className="text-[#FACC15]">Events</span>
+              RTIH <span className="text-[#FACC15]">Events</span>
             </h1>
 
             {/* Subtitle matching screenshot format */}

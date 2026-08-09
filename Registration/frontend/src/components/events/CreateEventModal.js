@@ -135,22 +135,53 @@ export function openCreateEventModal(eventObj = null, onSuccessCallback = null) 
   document.getElementById('create-event-modal-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const regStartDateTime = document.getElementById('ev-reg-start-datetime')?.value || '';
+    const regEndDateTime = document.getElementById('ev-reg-end-datetime')?.value || '';
+
+    if (regStartDateTime && regEndDateTime) {
+      const startObj = new Date(regStartDateTime);
+      const endObj = new Date(regEndDateTime);
+      if (startObj > endObj) {
+        showAlert('Registration Start Date & Time cannot be later than Registration End Date & Time.', 'error');
+        return;
+      }
+    }
+
+    let registrationStart = '';
+    let registrationStartTime = '';
+    if (regStartDateTime) {
+      const parts = regStartDateTime.split('T');
+      registrationStart = parts[0] || '';
+      registrationStartTime = parts[1] || '';
+    }
+
+    let registrationEnd = '';
+    let registrationEndTime = '';
+    if (regEndDateTime) {
+      const parts = regEndDateTime.split('T');
+      registrationEnd = parts[0] || '';
+      registrationEndTime = parts[1] || '';
+    }
+
     const payload = {
       title: document.getElementById('ev-title').value.trim(),
       summary: document.getElementById('ev-summary')?.value.trim() || '',
       description: document.getElementById('ev-desc').value.trim(),
       category: document.getElementById('ev-category')?.value || 'Startups',
       teamWide: document.getElementById('ev-teamwide')?.value || 'Innotribes',
+      organizerTeam: document.getElementById('ev-organizer-team')?.value || 'All Teams',
+      eventType: document.getElementById('ev-event-type')?.value || 'All Event Types',
+      organizerName: document.getElementById('ev-organizer-team')?.value || '',
       capacity: parseInt(document.getElementById('ev-capacity')?.value, 10) || 500,
       date: document.getElementById('ev-date')?.value || '',
       time: document.getElementById('ev-time')?.value || '',
       endDate: document.getElementById('ev-enddate')?.value || '',
       endTime: document.getElementById('ev-endtime')?.value || '',
-      registrationStart: document.getElementById('ev-reg-startdate')?.value || '',
-      registrationStartTime: document.getElementById('ev-reg-starttime')?.value || '',
-      registrationDeadline: document.getElementById('ev-deadline')?.value || '',
-      registrationEnd: document.getElementById('ev-deadline')?.value || '',
-      registrationEndTime: document.getElementById('ev-reg-endtime')?.value || '',
+      registrationStart,
+      registrationStartTime,
+      registrationDeadline: registrationEnd,
+      registrationEnd,
+      registrationEndTime,
       timezone: document.getElementById('ev-timezone')?.value || 'Asia/Calcutta',
       location: document.getElementById('ev-location')?.value.trim() || '',
       speakerDetails: document.getElementById('ev-speaker')?.value.trim() || '',

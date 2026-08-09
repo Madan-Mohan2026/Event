@@ -51,6 +51,11 @@ export interface EventItem {
   venue: string;
   address: string;
   category: EventCategory;
+  organizerTeam?: string;
+  organizerName?: string;
+  eventType?: string;
+  teamWide?: string;
+  participantType?: string;
   status: EventStatus;
   isFeatured: boolean;
   price: string;

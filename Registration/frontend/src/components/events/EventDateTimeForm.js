@@ -10,13 +10,27 @@ export function renderEventDateTimeForm(isEdit, eventObj) {
     }
   };
 
+  const formatDateTimeLocal = (d, t) => {
+    if (!d) return '';
+    try {
+      const dateObj = new Date(d);
+      if (isNaN(dateObj.getTime())) return '';
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      let timeStr = t || '09:00';
+      if (timeStr.length > 5) timeStr = timeStr.substring(0, 5);
+      return `${year}-${month}-${day}T${timeStr}`;
+    } catch {
+      return '';
+    }
+  };
+
   const startDate = isEdit ? formatDateVal(eventObj?.date) : '';
   const endDate = isEdit ? formatDateVal(eventObj?.endDate) : '';
 
-  const regStartDate = isEdit ? formatDateVal(eventObj?.registrationStart) : '';
-  const regStartTime = isEdit ? (eventObj?.registrationStartTime || '') : '';
-  const regEndDate = isEdit ? formatDateVal(eventObj?.registrationEnd || eventObj?.registrationDeadline) : '';
-  const regEndTime = isEdit ? (eventObj?.registrationEndTime || '') : '';
+  const regStartDateTime = isEdit ? formatDateTimeLocal(eventObj?.registrationStart, eventObj?.registrationStartTime) : '';
+  const regEndDateTime = isEdit ? formatDateTimeLocal(eventObj?.registrationEnd || eventObj?.registrationDeadline, eventObj?.registrationEndTime) : '';
 
   return `
     <div class="modal-form-section-card">
@@ -37,30 +51,16 @@ export function renderEventDateTimeForm(isEdit, eventObj) {
         </div>
       </div>
 
-      <!-- Registration Start Date & Time -->
-      <div class="form-grid-2col margin-top-12">
-        <div class="form-group-custom">
-          <label class="form-label-custom">REGISTRATION START DATE</label>
-          <input type="date" id="ev-reg-startdate" class="form-control-custom" value="${regStartDate}" />
-        </div>
-
-        <div class="form-group-custom">
-          <label class="form-label-custom">REGISTRATION START TIME</label>
-          <input type="time" id="ev-reg-starttime" class="form-control-custom" value="${regStartTime}" />
-        </div>
+      <!-- Registration Start Date & Time (Combined Single Field) -->
+      <div class="form-group-custom margin-top-12">
+        <label class="form-label-custom">REGISTRATION START DATE & TIME</label>
+        <input type="datetime-local" id="ev-reg-start-datetime" class="form-control-custom" value="${regStartDateTime}" />
       </div>
 
-      <!-- Registration End Date & Time -->
-      <div class="form-grid-2col margin-top-12">
-        <div class="form-group-custom">
-          <label class="form-label-custom">REGISTRATION END DATE <span class="required-star">*</span></label>
-          <input type="date" id="ev-deadline" class="form-control-custom" value="${regEndDate}" required />
-        </div>
-
-        <div class="form-group-custom">
-          <label class="form-label-custom">REGISTRATION END TIME</label>
-          <input type="time" id="ev-reg-endtime" class="form-control-custom" value="${regEndTime}" />
-        </div>
+      <!-- Registration End Date & Time (Combined Single Field) -->
+      <div class="form-group-custom margin-top-12">
+        <label class="form-label-custom">REGISTRATION END DATE & TIME <span class="required-star">*</span></label>
+        <input type="datetime-local" id="ev-reg-end-datetime" class="form-control-custom" value="${regEndDateTime}" required />
       </div>
     </div>
   `;

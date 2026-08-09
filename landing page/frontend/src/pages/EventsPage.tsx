@@ -52,7 +52,7 @@ export const EventsPage: React.FC = () => {
             Event Catalog
           </span>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
-            Explore All <span className="text-gradient-cyan">Smart Events</span>
+            Explore All <span className="text-gradient-cyan">RTIH Events</span>
           </h1>
           <p className="text-slate-400 text-base sm:text-lg">
             Browse our curated lineup of tech summits, startup expos, masterclasses, and executive forums. Register instantly for contactless entry.
@@ -97,7 +97,7 @@ export const EventsPage: React.FC = () => {
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                Upcoming
+                Upcoming Events
               </button>
               <button
                 onClick={() => setActiveStatus('ongoing')}
@@ -108,7 +108,7 @@ export const EventsPage: React.FC = () => {
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                Live Now
+                Ongoing Registrations
               </button>
               <button
                 onClick={() => setActiveStatus('completed')}
@@ -118,7 +118,7 @@ export const EventsPage: React.FC = () => {
                     : 'bg-slate-900 text-slate-400 hover:text-white'
                 }`}
               >
-                Concluded
+                Completed Events
               </button>
             </div>
 

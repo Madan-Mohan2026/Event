@@ -24,6 +24,8 @@ export interface IEvent extends Document {
   category: string;
   participantType?: string; // Startups, MSMEs, Students, VDP
   teamWide?: string;        // Innotribes, Innovation, Partnerships
+  organizerTeam?: string;   // Amaravathi Hub, Vizag Spoke, etc.
+  eventType?: string;       // VDP, Spark, Udhyam, All Event Types
   location: string;
   speakerDetails: string;
   date: Date;
@@ -85,6 +87,8 @@ const eventSchema = new Schema<IEvent>(
     category: { type: String, default: 'General' },
     participantType: { type: String, default: 'Startups' },
     teamWide: { type: String, default: 'Innotribes' },
+    organizerTeam: { type: String, default: 'All Teams' },
+    eventType: { type: String, default: 'All Event Types' },
     location: { type: String, default: '' },
     speakerDetails: { type: String, default: '' },
     date: { type: Date, required: true },

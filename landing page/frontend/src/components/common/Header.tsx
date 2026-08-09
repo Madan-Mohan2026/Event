@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import rtihLogo from '../../assets/rtih-logo.png';
+import apLogo from '../../assets/ap-innovation-logo.png';
 
 export const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 10);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -21,41 +18,43 @@ export const Header: React.FC = () => {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 bg-white ${
         isScrolled
-          ? 'shadow-md border-b border-slate-200 py-3'
-          : 'border-b border-slate-100 py-4'
+          ? 'shadow-md border-b border-slate-200 py-2.5'
+          : 'border-b border-slate-200 py-3.5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           
-          {/* Brand Logo - RTIH Format */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-[#7E22CE] flex items-center justify-center text-white shadow-md shadow-purple-600/20 group-hover:bg-[#6B21A8] transition-colors">
-              <Zap className="w-5 h-5 fill-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-2xl font-black tracking-tight text-[#1E1B4B]">
-                Smart<span className="text-[#7E22CE]">Events</span>
-              </span>
-              <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase -mt-1">
-                Events & Expos
-              </span>
-            </div>
-          </Link>
+          {/* Left Logo: Official RTIH Image */}
+          <div className="flex items-center cursor-default">
+            <img
+              src={rtihLogo}
+              alt="RTIH - Ratan Tata Innovation Hub Logo"
+              className="h-9 sm:h-11 w-auto object-contain"
+            />
+          </div>
 
-          {/* Partner / Organization Logo Badge on Right */}
-          <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
-            <div className="flex flex-col text-right">
-              <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">
-                Smart Event Platform
-              </span>
-              <span className="text-[11px] font-medium text-slate-500">
-                Official Registration Portal
-              </span>
+          {/* Center: Static Navigation Buttons (No page linking per user request) */}
+          <div className="hidden md:flex items-center gap-10 text-sm font-semibold text-slate-700">
+            <button type="button" className="hover:text-[#5B21B6] transition-colors cursor-default">
+              Home
+            </button>
+            <button type="button" className="hover:text-[#5B21B6] transition-colors cursor-default">
+              Challenges
+            </button>
+            <div className="flex items-center gap-1 cursor-default hover:text-[#5B21B6] transition-colors">
+              <span>Login</span>
+              <ChevronDown className="w-4 h-4 text-slate-500" />
             </div>
-            <div className="w-9 h-9 rounded-full bg-purple-50 border border-purple-200 flex items-center justify-center text-[#7E22CE] font-bold text-sm">
-              SE
-            </div>
+          </div>
+
+          {/* Right Logo: Official Andhra Pradesh Innovation Society Image */}
+          <div className="flex items-center cursor-default">
+            <img
+              src={apLogo}
+              alt="Andhra Pradesh Innovation Society Logo"
+              className="h-10 sm:h-12 w-auto object-contain"
+            />
           </div>
 
         </div>

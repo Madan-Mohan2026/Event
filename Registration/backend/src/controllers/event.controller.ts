@@ -291,6 +291,8 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       category: category || 'General',
       participantType: participantType || 'Startups',
       teamWide: teamWide || 'Innotribes',
+      organizerTeam: req.body.organizerTeam || organizerName || 'All Teams',
+      eventType: req.body.eventType || 'All Event Types',
       location: location || '',
       speakerDetails: speakerDetails || '',
       date: startDateObj,
@@ -304,7 +306,7 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       registrationEndTime: req.body.registrationEndTime || '',
       timezone: req.body.timezone || 'Asia/Calcutta',
       assignedAdmin: assignedAdmin || 'Unassigned (Super Admin Only)',
-      organizerName: organizerName || '',
+      organizerName: organizerName || req.body.organizerTeam || '',
       contactNumber: contactNumber || '',
       supportEmail: supportEmail || '',
       bannerImage: bannerImage ? saveBase64ImageToDisk(bannerImage, 'banner') : '',
@@ -437,7 +439,15 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     if (req.body.registrationEndTime !== undefined) event.registrationEndTime = req.body.registrationEndTime;
     if (req.body.timezone !== undefined) event.timezone = req.body.timezone;
     if (assignedAdmin !== undefined) event.assignedAdmin = assignedAdmin;
-    if (organizerName !== undefined) event.organizerName = organizerName;
+    if (req.body.organizerTeam !== undefined) {
+      event.organizerTeam = req.body.organizerTeam;
+      if (!event.organizerName) event.organizerName = req.body.organizerTeam;
+    }
+    if (req.body.eventType !== undefined) event.eventType = req.body.eventType;
+    if (organizerName !== undefined) {
+      event.organizerName = organizerName;
+      if (!event.organizerTeam) event.organizerTeam = organizerName;
+    }
     if (contactNumber !== undefined) event.contactNumber = contactNumber;
     if (supportEmail !== undefined) event.supportEmail = supportEmail;
     if (bannerImage !== undefined) event.bannerImage = bannerImage ? saveBase64ImageToDisk(bannerImage, 'banner') : '';

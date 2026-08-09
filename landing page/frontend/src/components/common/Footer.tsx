@@ -1,189 +1,104 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Mail, Phone, MapPin, Calendar, ArrowRight } from 'lucide-react';
-import { TwitterIcon, LinkedinIcon, YoutubeIcon, GithubIcon } from './SocialIcons';
+import { Mail, MapPin, Clock } from 'lucide-react';
+import { FacebookIcon, TwitterIcon, LinkedinIcon, InstagramIcon } from './SocialIcons';
 
 export const Footer: React.FC = () => {
-  const navigate = useNavigate();
-
   return (
-    <footer className="bg-[#0F172A] text-slate-300 relative overflow-hidden">
-      
-      {/* Top Purple CTA Banner Strip matching RTIH Screenshot */}
-      <div className="bg-[#7E22CE] bg-gradient-to-r from-[#6B21A8] via-[#7E22CE] to-[#8B5CF6] text-white py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+    <footer className="bg-[#0B1329] text-slate-300 relative overflow-hidden pt-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+
+        {/* Top Purple CTA Banner Strip matching Image 2 */}
+        <div className="bg-[#7E22CE] bg-gradient-to-r from-[#6B21A8] via-[#7E22CE] to-[#7E22CE] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center md:text-left">
-            <h3 className="text-2xl sm:text-3xl font-black">
-              Have an Event or Summit Idea?
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
+              Have a Challenge Idea?
             </h3>
             <p className="text-purple-100 text-sm max-w-xl">
-              Partner with SmartEvents to launch contactless QR-enabled registration for your upcoming tech summits, startup expos, and masterclasses.
+              Partner with us to crowdsource innovative solutions for your department.
             </p>
           </div>
 
           <button
-            onClick={() => navigate('/contact')}
-            className="px-6 py-3 rounded-xl font-bold text-sm bg-white text-[#7E22CE] hover:bg-slate-100 shadow-lg flex items-center gap-2 shrink-0 transition-all active:scale-95"
+            type="button"
+            className="px-6 py-3 rounded-xl font-bold text-sm bg-white text-[#7E22CE] hover:bg-slate-100 shadow-md flex items-center gap-2 shrink-0 transition-all cursor-default"
           >
-            <Calendar className="w-4 h-4" />
-            <span>Host an Event</span>
-            <ArrowRight className="w-4 h-4" />
+            <Mail className="w-4 h-4 fill-[#7E22CE] text-[#7E22CE]" />
+            <span>Contact Us</span>
           </button>
         </div>
-      </div>
 
-      {/* Main Footer Links */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-800">
-          
-          {/* Brand Info */}
-          <div className="lg:col-span-2 space-y-4">
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#7E22CE] flex items-center justify-center text-white shadow-md">
-                <Zap className="w-5 h-5 fill-white" />
-              </div>
-              <span className="text-2xl font-black tracking-tight text-white">
-                Smart<span className="text-purple-400">Events</span>
-              </span>
-            </Link>
-            
-            <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-              The next-generation Smart Event Registration Platform empowering organizers to deliver seamless, contactless, QR-enabled summit & conference experiences globally.
+        {/* 4-Column Main Footer Section matching Image 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-slate-800/80">
+
+          {/* Col 1: About RTIH */}
+          <div className="space-y-3">
+            <h4 className="text-white text-base font-bold">About RTIH</h4>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Ratan Tata Innovation Hub — Empowering entrepreneurs through technology and innovation. Building a bridge between government challenges and innovative solutions.
             </p>
-
-            <div className="flex items-center gap-3 pt-2">
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Twitter"
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors"
-              >
-                <TwitterIcon className="w-4 h-4" />
-              </a>
-              <a
-                href="https://linkedin.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="LinkedIn"
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors"
-              >
-                <LinkedinIcon className="w-4 h-4" />
-              </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="YouTube"
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors"
-              >
-                <YoutubeIcon className="w-4 h-4" />
-              </a>
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="GitHub"
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors"
-              >
-                <GithubIcon className="w-4 h-4" />
-              </a>
-            </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4">Quick Links</h4>
-            <ul className="space-y-2.5 text-sm text-slate-400">
-              <li>
-                <Link to="/" className="hover:text-purple-400 transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link to="/events" className="hover:text-purple-400 transition-colors">
-                  Browse Events
-                </Link>
-              </li>
-              <li>
-                <Link to="/about" className="hover:text-purple-400 transition-colors">
-                  About Platform
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="hover:text-purple-400 transition-colors">
-                  Contact Support
-                </Link>
-              </li>
+          {/* Col 2: Quick Links */}
+          <div className="space-y-3">
+            <h4 className="text-white text-base font-bold">Quick Links</h4>
+            <ul className="space-y-2 text-sm text-slate-400">
+              <li className="hover:text-purple-400 transition-colors cursor-default">Home</li>
+              <li className="hover:text-purple-400 transition-colors cursor-default">All Challenges</li>
+              <li className="hover:text-purple-400 transition-colors cursor-default">Visit RTIH</li>
+              <li className="hover:text-purple-400 transition-colors cursor-default">Startup Login</li>
+              <li className="hover:text-purple-400 transition-colors cursor-default">Department Login</li>
             </ul>
           </div>
 
-          {/* Categories */}
-          <div>
-            <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4">Event Categories</h4>
-            <ul className="space-y-2.5 text-sm text-slate-400">
-              <li>
-                <Link to="/events?category=AI+%26+Tech" className="hover:text-purple-400 transition-colors">
-                  AI & Technology
-                </Link>
-              </li>
-              <li>
-                <Link to="/events?category=Startup+%26+Innovation" className="hover:text-purple-400 transition-colors">
-                  Startup Innovation
-                </Link>
-              </li>
-              <li>
-                <Link to="/events?category=Smart+Cities" className="hover:text-purple-400 transition-colors">
-                  Smart Cities Infrastructure
-                </Link>
-              </li>
-              <li>
-                <Link to="/events?category=Green+Energy" className="hover:text-purple-400 transition-colors">
-                  Green Energy & ESG
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact Details */}
-          <div>
-            <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4">Contact Info</h4>
+          {/* Col 3: Contact Info */}
+          <div className="space-y-3">
+            <h4 className="text-white text-base font-bold">Contact Info</h4>
             <ul className="space-y-3 text-sm text-slate-400">
               <li className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-                <span>450 Innovation Blvd, Silicon Valley, CA</span>
+                <MapPin className="w-4 h-4 text-purple-400 shrink-0 mt-1" />
+                <span>4th Floor, Mayuri Tech Park, Mangalagiri, Guntur Andhra Pradesh <strong>522503</strong></span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-purple-400 shrink-0" />
-                <a href="mailto:support@smartevents.io" className="hover:text-purple-400 transition-colors">
-                  support@smartevents.io
-                </a>
+                <span>connect@rtih.co.in</span>
               </li>
-              <li className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-purple-400 shrink-0" />
-                <span>+1 (800) 555-0199</span>
+              <li className="flex items-start gap-2.5">
+                <Clock className="w-4 h-4 text-purple-400 shrink-0 mt-1" />
+                <span>Monday to Friday <strong>10:30 am – 5:30 pm</strong> (except public holidays)</span>
               </li>
             </ul>
           </div>
 
+          {/* Col 4: Connect */}
+          <div className="space-y-3">
+            <h4 className="text-white text-base font-bold">Connect</h4>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Stay updated with the latest challenges and innovation opportunities.
+            </p>
+
+            <div className="flex items-center gap-2.5 pt-2">
+              <div className="w-9 h-9 rounded-xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors cursor-default">
+                <FacebookIcon className="w-4 h-4" />
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors cursor-default">
+                <TwitterIcon className="w-4 h-4" />
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors cursor-default">
+                <LinkedinIcon className="w-4 h-4" />
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#7E22CE] transition-colors cursor-default">
+                <InstagramIcon className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} SmartEvents Platform. All rights reserved.</p>
-          
-          <div className="flex items-center gap-6">
-            <a href="#privacy" className="hover:text-slate-400 transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#terms" className="hover:text-slate-400 transition-colors">
-              Terms & Conditions
-            </a>
-            <a href="#cookies" className="hover:text-slate-400 transition-colors">
-              Cookie Preferences
-            </a>
-          </div>
+        {/* Bottom Bar matching Image 2 */}
+        <div className="py-6 text-center text-xs text-slate-500">
+          <p>© {new Date().getFullYear()} Ratan Tata Innovation Hub. All rights reserved.</p>
         </div>
+
       </div>
     </footer>
   );
