@@ -34,27 +34,21 @@ export const Header: React.FC = () => {
             />
           </div>
 
-          {/* Center: Static Navigation Buttons (No page linking per user request) */}
-          <div className="hidden md:flex items-center gap-10 text-sm font-semibold text-slate-700">
-            <button type="button" className="hover:text-[#5B21B6] transition-colors cursor-default">
-              Home
-            </button>
-            <button type="button" className="hover:text-[#5B21B6] transition-colors cursor-default">
-              Events
-            </button>
-            <div className="flex items-center gap-1 cursor-default hover:text-[#5B21B6] transition-colors">
+          {/* Right Section: Login button + AP Innovation Society Logo */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-1 cursor-default text-sm font-semibold text-slate-700 hover:text-[#5B21B6] transition-colors">
               <span>Login</span>
               <ChevronDown className="w-4 h-4 text-slate-500" />
             </div>
-          </div>
 
-          {/* Right Logo: Official Andhra Pradesh Innovation Society Image */}
-          <div className="flex items-center cursor-default">
-            <img
-              src={apLogo}
-              alt="Andhra Pradesh Innovation Society Logo"
-              className="h-10 sm:h-12 w-auto object-contain"
-            />
+            {/* Right Logo: Official Andhra Pradesh Innovation Society Image */}
+            <div className="flex items-center cursor-default">
+              <img
+                src={apLogo}
+                alt="Andhra Pradesh Innovation Society Logo"
+                className="h-10 sm:h-12 w-auto object-contain"
+              />
+            </div>
           </div>
 
         </div>
