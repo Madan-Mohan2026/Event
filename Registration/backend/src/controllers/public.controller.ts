@@ -188,7 +188,7 @@ export const getPublicEvents = async (req: Request, res: Response): Promise<void
     console.time('[PUBLIC API] Event.find');
     const events = await Event.find(filter)
       .select('-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema')
-      .sort({ date: 1 })
+      .sort({ createdAt: -1, _id: -1 })
       .lean();
     console.timeEnd('[PUBLIC API] Event.find');
 
