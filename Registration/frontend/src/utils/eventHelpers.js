@@ -69,3 +69,41 @@ export async function copyEventLink(eventId) {
   const url = `${baseUrl}/#register/${eventId}`;
   await copyToClipboard(url, 'Public registration link copied to clipboard!');
 }
+
+export function getEventAbbreviation(event) {
+  if (!event) return 'EVT';
+
+  // 1. Use explicit short code/abbreviation if present in event object
+  const explicitCode = event.shortCode || event.code || event.abbreviation || event.eventCode || event.shortTitle || event.prefix;
+  if (explicitCode && typeof explicitCode === 'string' && explicitCode.trim().length > 0) {
+    const clean = explicitCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (clean.length >= 2) return clean.slice(0, 4);
+  }
+
+  const rawTitle = (typeof event === 'string' ? event : (event.title || '')).trim();
+  if (!rawTitle) return 'EVT';
+
+  // Clean title: keep alphanumeric chars and spaces
+  const cleanTitle = rawTitle.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+  const words = cleanTitle.split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) return 'EVT';
+
+  // If 3 or more words, take initials (e.g., ANDHRA PRADESH INCUBATORS MEETUP -> APIM)
+  if (words.length >= 3) {
+    const initials = words.map(w => w[0]).join('').toUpperCase();
+    if (initials.length >= 3 && initials.length <= 4) {
+      return initials;
+    } else if (initials.length > 4) {
+      return initials.slice(0, 4);
+    }
+  }
+
+  // For 1 or 2 words (e.g. "SECURESIGN INNOVATION", "TECH EXPO", "AI SUMMIT")
+  const firstWord = words[0].toUpperCase();
+  if (firstWord.length <= 4) {
+    return firstWord; // "TECH EXPO" -> "TECH", "AI SUMMIT" -> "AI"
+  } else {
+    return firstWord.slice(0, 3); // "SECURESIGN INNOVATION" -> "SEC"
+  }
+}

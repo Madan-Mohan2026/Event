@@ -1,6 +1,6 @@
 import { apiFetch } from '../../services/api.js';
 import { getPublicBaseUrl, buildQrUrl } from '../../utils/qrHelpers.js';
-import { resolveImageUrl } from '../../utils/eventHelpers.js';
+import { resolveImageUrl, getEventAbbreviation } from '../../utils/eventHelpers.js';
 import { showAlert } from '../../utils/helpers.js';
 import { getFieldBehavior, getAttributesForBehavior, validateFieldValue } from '../../utils/validation.js';
 
@@ -219,7 +219,7 @@ export async function renderPublicRegistrationPage(eventId) {
 
               <!-- Subtitle text -->
               <p style="font-size:14px; color:#64748b; margin-bottom:28px; line-height:1.5;">
-                Your response for <strong style="color:#0f172a;">${event.title}</strong> has been successfully recorded.
+                Your response for <strong style="color:#0f172a;">${getEventAbbreviation(event)}</strong> has been successfully recorded.
               </p>
 
               <!-- Dashed Reference ID Container -->
