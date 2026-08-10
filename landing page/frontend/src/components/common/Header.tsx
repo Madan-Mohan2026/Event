@@ -1,18 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
 import rtihLogo from '../../assets/rtih-logo.png';
 import apLogo from '../../assets/ap-innovation-logo.png';
-
-const isLocalhost = typeof window !== 'undefined' && (
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1' ||
-  window.location.hostname.startsWith('192.168.') ||
-  window.location.hostname.startsWith('10.')
-);
-
-const adminLoginUrl = (import.meta.env.VITE_REGISTRATION_BASE_URL || (isLocalhost
-  ? `${window.location.protocol}//${window.location.hostname}:5173`
-  : 'https://event-admin-losq.onrender.com')).replace(/\/$/, '') + '/#login';
 
 export const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -45,16 +33,8 @@ export const Header: React.FC = () => {
             />
           </a>
 
-          {/* Right Section: Login button + AP Innovation Society Logo */}
-          <div className="flex items-center gap-6">
-            <a
-              href={adminLoginUrl}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5B21B6] border border-purple-200 text-sm font-bold transition-all shadow-sm hover:shadow cursor-pointer"
-            >
-              <span>Login</span>
-              <ChevronDown className="w-4 h-4 text-[#5B21B6]" />
-            </a>
-
+          {/* Right Section: AP Innovation Society Logo */}
+          <div className="flex items-center">
             {/* Right Logo: Official Andhra Pradesh Innovation Society Image */}
             <div className="flex items-center cursor-default">
               <img

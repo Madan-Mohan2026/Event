@@ -42,16 +42,9 @@ export const HeroSection: React.FC = () => {
 
           {/* Right Tagline Block matching reference screenshot */}
           <div className="lg:col-span-4 hidden lg:block">
-            <div className="p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 space-y-3 text-right">
-              <p className="text-sm sm:text-base font-semibold text-purple-100 leading-relaxed">
-                Ratan Tata Innovation Hub a flagship initiative that brings to life the Hon'ble Chief Minister <strong className="text-white font-extrabold">Mr. N. Chandrababu Naidu's</strong> visionary mission of <strong className="text-white font-extrabold">"One Family, One Entrepreneur"</strong>.
-              </p>
-              <div className="pt-2 flex items-center justify-end gap-2 text-xs font-bold text-yellow-300">
-                <span>Instant QR Check-in</span>
-                <span>&bull;</span>
-                <span>Real-Time Updates</span>
-              </div>
-            </div>
+            <p className="text-sm sm:text-base font-normal text-purple-100 leading-relaxed text-right">
+              Ratan Tata Innovation Hub a flagship initiative that brings to life the Hon'ble Chief Minister <strong className="text-white font-bold">Mr. N. Chandrababu Naidu's</strong> visionary mission of <strong className="text-white font-bold">"One Family, One Entrepreneur"</strong> .
+            </p>
           </div>
 
         </div>
