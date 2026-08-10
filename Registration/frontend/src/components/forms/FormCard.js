@@ -5,7 +5,7 @@ export function renderFormCard(event) {
   const fieldsCount = Array.isArray(event.formSchema) ? event.formSchema.length : (event.formSchema ? 3 : 0);
   const responsesCount = event.regsCount !== undefined ? event.regsCount : (event.responsesCount || 0);
   const createdDateFormatted = formatCreatedDate(event.createdAt || event.date);
-  const isAssigned = !!event.assignedFormId || (fieldsCount > 0);
+  const isAssigned = event.isAssigned === true || (!!event.assignedFormId && String(event.assignedFormId).trim() !== '');
   const bannerImage = resolveImageUrl(event.bannerImage);
 
   return `

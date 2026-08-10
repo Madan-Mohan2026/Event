@@ -7,23 +7,40 @@ import { AuthRequest } from '../middleware/auth.middleware';
 export const getForms = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const standaloneForms = await Form.find().sort({ createdAt: -1 }).lean();
-    const eventsWithForms = await Event.find({ formSchema: { $exists: true, $not: { $size: 0 } } })
-      .select('title description formSchema category date createdAt')
+    const allEvents = await Event.find()
+      .select('title description formSchema category date createdAt assignedFormId')
       .sort({ createdAt: -1 })
       .lean();
 
+    // Set of form IDs that are assigned to an event
+    const assignedFormIdsSet = new Set<string>();
+    for (const evt of allEvents) {
+      if (evt.assignedFormId && String(evt.assignedFormId).trim() !== '') {
+        assignedFormIdsSet.add(String(evt.assignedFormId).trim());
+      }
+    }
+
     // Map standalone forms
-    const formattedStandalone = standaloneForms.map(f => ({
-      ...f,
-      isStandalone: true,
-      formSchema: (f.formSchema && f.formSchema.length > 0) ? f.formSchema : (f.fields || []),
-      regsCount: f.regsCount || f.responsesCount || 0
-    }));
+    const formattedStandalone = standaloneForms.map(f => {
+      const formIdStr = String(f._id);
+      const isAssigned = assignedFormIdsSet.has(formIdStr) || (f as any).isAssigned === true;
+      return {
+        ...f,
+        isStandalone: true,
+        isAssigned,
+        assignedFormId: isAssigned ? (f as any).assignedFormId || formIdStr : '',
+        formSchema: (f.formSchema && f.formSchema.length > 0) ? f.formSchema : (f.fields || []),
+        regsCount: f.regsCount || f.responsesCount || 0
+      };
+    });
 
     // Map events with forms
+    const eventsWithForms = allEvents.filter(e => e.formSchema && e.formSchema.length > 0);
     const formattedEvents = eventsWithForms.map(e => ({
       ...e,
       isStandalone: false,
+      isAssigned: true,
+      assignedFormId: String(e.assignedFormId || e._id),
       formSchema: e.formSchema || [],
       fields: e.formSchema || [],
       regsCount: 0

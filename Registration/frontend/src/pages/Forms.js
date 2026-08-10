@@ -39,7 +39,7 @@ export async function renderFormsListView() {
     state.events = events;
 
     const filteredEvents = events.filter(e => {
-      const isAssigned = !!e.assignedFormId || (Array.isArray(e.formSchema) && e.formSchema.length > 0);
+      const isAssigned = e.isAssigned === true || (!!e.assignedFormId && String(e.assignedFormId).trim() !== '');
       if (activeFormTab === 'unassigned') return !isAssigned;
       return true;
     });
