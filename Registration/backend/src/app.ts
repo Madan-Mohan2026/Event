@@ -78,7 +78,7 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // Basic Health Check Route
 app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'OK', message: 'Backend is running' });
+  res.status(200).json({ status: 'OK', message: 'Backend is running', version: '2.1.0-duplicate-protection' });
 });
 
 // Server IP & LAN Host URL Config endpoint for QR generation

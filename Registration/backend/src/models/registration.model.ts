@@ -131,7 +131,7 @@ registrationSchema.index({ eventId: 1, registeredAt: -1 });
 registrationSchema.index({ eventId: 1, participantPhone: 1 });
 registrationSchema.index(
   { eventId: 1, participantPhoneNormalized: 1 },
-  { unique: true, partialFilterExpression: { participantPhoneNormalized: { $gt: '' } } }
+  { unique: true, partialFilterExpression: { participantPhoneNormalized: { $gt: '' } }, background: true }
 );
 registrationSchema.index({ eventId: 1, registrationId: 1 });
 registrationSchema.index({ eventId: 1, attended: 1 });
