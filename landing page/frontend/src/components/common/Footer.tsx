@@ -7,26 +7,6 @@ export const Footer: React.FC = () => {
     <footer className="bg-[#0B1329] text-slate-300 relative overflow-hidden pt-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
 
-        {/* Top Purple CTA Banner Strip matching Image 2 */}
-        <div className="bg-[#7E22CE] bg-gradient-to-r from-[#6B21A8] via-[#7E22CE] to-[#7E22CE] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-1 text-center md:text-left">
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Have an Event Idea?
-            </h3>
-            <p className="text-purple-100 text-sm max-w-xl">
-              Partner with us to crowdsource innovative solutions for your department.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="px-6 py-3 rounded-xl font-bold text-sm bg-white text-[#7E22CE] hover:bg-slate-100 shadow-md flex items-center gap-2 shrink-0 transition-all cursor-default"
-          >
-            <Mail className="w-4 h-4 fill-[#7E22CE] text-[#7E22CE]" />
-            <span>Contact Us</span>
-          </button>
-        </div>
-
         {/* 4-Column Main Footer Section matching Image 2 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-slate-800/80">
 
