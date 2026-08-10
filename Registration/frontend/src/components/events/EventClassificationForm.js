@@ -36,11 +36,8 @@ export function renderEventClassificationForm(isEdit, eventObj) {
             <option value="Startups" ${currentCategory === 'Startups' ? 'selected' : ''}>Startups</option>
             <option value="MSMEs" ${currentCategory === 'MSMEs' ? 'selected' : ''}>MSMEs</option>
             <option value="Students" ${currentCategory === 'Students' ? 'selected' : ''}>Students</option>
-            <option value="Professionals" ${currentCategory === 'Professionals' ? 'selected' : ''}>Professionals</option>
-            <option value="Delegates" ${currentCategory === 'Delegates' ? 'selected' : ''}>Delegates</option>
-            <option value="DEWE" ${currentCategory === 'DEWE' ? 'selected' : ''}>DEWE</option>
-            <option value="General" ${currentCategory === 'General' ? 'selected' : ''}>General</option>
             <option value="All" ${currentCategory === 'All' ? 'selected' : ''}>All</option>
+            <option value="Others" ${currentCategory === 'Others' ? 'selected' : ''}>Others</option>
           </select>
         </div>
 
@@ -49,10 +46,7 @@ export function renderEventClassificationForm(isEdit, eventObj) {
           <select id="ev-teamwide" class="form-control-custom select-custom">
             <option value="Innovation" ${currentTeamWide === 'Innovation' ? 'selected' : ''}>Innovation</option>
             <option value="Innotribes" ${currentTeamWide === 'Innotribes' ? 'selected' : ''}>Innotribes</option>
-            <option value="Partnerships" ${currentTeamWide === 'Partnerships' ? 'selected' : ''}>Partnerships</option>
-            <option value="General" ${currentTeamWide === 'General' ? 'selected' : ''}>General</option>
-            <option value="RTIH Hub" ${currentTeamWide === 'RTIH Hub' ? 'selected' : ''}>RTIH Hub</option>
-            <option value="Campus Wide" ${currentTeamWide === 'Campus Wide' ? 'selected' : ''}>Campus Wide</option>
+            <option value="Partnership" ${currentTeamWide === 'Partnership' || currentTeamWide === 'Partnerships' ? 'selected' : ''}>Partnership</option>
           </select>
         </div>
       </div>
