@@ -1,4 +1,5 @@
 import { API_BASE } from '../utils/constants.js';
+import { getFieldBehavior, getAttributesForBehavior, validateFieldValue } from '../utils/validation.js';
 
 export async function renderAttendancePage(eventId, deskType = 'attendance') {
   return renderAttendanceLandingPage(eventId, deskType);
@@ -324,11 +325,11 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
           </div>
         `;
       } else {
-        let inputType = 'text';
-        if (type === 'email') inputType = 'email';
+        const behavior = getFieldBehavior(field);
+        const attrStr = getAttributesForBehavior(behavior);
 
         let defaultVal = '';
-        const isPhoneField = field.name?.toLowerCase().includes('phone') || field.name?.toLowerCase().includes('mobile') || field.label?.toLowerCase().includes('phone') || field.label?.toLowerCase().includes('mobile');
+        const isPhoneField = behavior === 'phone';
         if (isPhoneField && initialMobile) {
           defaultVal = initialMobile;
         }
@@ -336,7 +337,7 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
-            <input type="${inputType}" id="${fieldId}" name="${field.name || fieldId}" class="form-control" value="${defaultVal}" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;" />
+            <input ${attrStr} id="${fieldId}" name="${field.name || fieldId}" class="form-control" value="${defaultVal}" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;" />
           </div>
         `;
       }
@@ -367,6 +368,31 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       </div>
     `;
 
+    formSchema.forEach((field, idx) => {
+      const fieldId = `spot-field-${idx}`;
+      const el = document.getElementById(fieldId);
+      if (!el) return;
+
+      const behavior = getFieldBehavior(field);
+      if (['number', 'phone', 'aadhaar', 'pincode'].includes(behavior)) {
+        el.addEventListener('input', () => {
+          el.value = el.value.replace(/[^0-9]/g, '');
+          if (behavior === 'phone' && el.value.length > 10) {
+            el.value = el.value.slice(0, 10);
+          } else if (behavior === 'aadhaar' && el.value.length > 12) {
+            el.value = el.value.slice(0, 12);
+          } else if (behavior === 'pincode' && el.value.length > 6) {
+            el.value = el.value.slice(0, 6);
+          }
+        });
+      } else if (behavior === 'pan') {
+        el.addEventListener('input', () => {
+          el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+          if (el.value.length > 10) el.value = el.value.slice(0, 10);
+        });
+      }
+    });
+
     document.getElementById('spot-reg-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('submit-spot-btn');
@@ -379,15 +405,26 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       spotAlert.innerHTML = '';
 
       const formData = {};
-      formSchema.forEach((field, idx) => {
+      for (let idx = 0; idx < formSchema.length; idx++) {
+        const field = formSchema[idx];
         const fieldId = `spot-field-${idx}`;
         const el = document.getElementById(fieldId);
-        if (el) {
-          const val = el.type === 'checkbox' ? el.checked : el.value;
-          if (field.name) formData[field.name] = val;
-          if (field.label) formData[field.label] = val;
+        const val = el ? (el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value) : '';
+
+        const validationErr = validateFieldValue(field, val);
+        if (validationErr) {
+          spotAlert.innerHTML = `<div class="alert alert-danger" style="margin-bottom:16px;">⚠️ ${validationErr}</div>`;
+          if (el && typeof el.focus === 'function') el.focus();
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Spot Registration';
+          }
+          return;
         }
-      });
+
+        if (field.name) formData[field.name] = val;
+        if (field.label) formData[field.label] = val;
+      }
 
       try {
         const response = await fetch(`${API_BASE}/api/registrations/spot/${eventId}`, {

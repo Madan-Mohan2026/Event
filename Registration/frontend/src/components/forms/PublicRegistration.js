@@ -2,6 +2,7 @@ import { apiFetch } from '../../services/api.js';
 import { getPublicBaseUrl, buildQrUrl } from '../../utils/qrHelpers.js';
 import { resolveImageUrl } from '../../utils/eventHelpers.js';
 import { showAlert } from '../../utils/helpers.js';
+import { getFieldBehavior, getAttributesForBehavior, validateFieldValue } from '../../utils/validation.js';
 
 export async function renderPublicRegistrationPage(eventId) {
   const app = document.getElementById('app');
@@ -31,6 +32,7 @@ export async function renderPublicRegistrationPage(eventId) {
 
     const fieldsHTML = formSchema.map((field, idx) => {
       const type = (field.fieldType || field.type || 'short_text').toLowerCase();
+      const behavior = getFieldBehavior(field);
       const isReq = field.required === true;
       const reqMark = isReq ? '<span style="color:#ef4444;">*</span>' : '';
       const fieldId = `dyn-field-${idx}`;
@@ -76,15 +78,12 @@ export async function renderPublicRegistrationPage(eventId) {
           </div>
         `;
       } else {
-        let inputType = 'text';
-        if (type === 'email') inputType = 'email';
-        if (type === 'date') inputType = 'date';
-        if (type === 'time') inputType = 'time';
+        const attrStr = getAttributesForBehavior(behavior);
 
         return `
           <div class="form-group" style="margin-bottom:18px;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
-            <input type="${inputType}" id="${fieldId}" name="${field.name || fieldId}" class="form-control" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px;" />
+            <input ${attrStr} id="${fieldId}" name="${field.name || fieldId}" class="form-control" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px;" />
           </div>
         `;
       }
@@ -115,6 +114,32 @@ export async function renderPublicRegistrationPage(eventId) {
       </div>
     `;
 
+    // Attach real-time input filtering listeners for numeric, phone, aadhaar, pincode, and PAN fields
+    formSchema.forEach((field, idx) => {
+      const fieldId = `dyn-field-${idx}`;
+      const el = document.getElementById(fieldId);
+      if (!el) return;
+
+      const behavior = getFieldBehavior(field);
+      if (['number', 'phone', 'aadhaar', 'pincode'].includes(behavior)) {
+        el.addEventListener('input', () => {
+          el.value = el.value.replace(/[^0-9]/g, '');
+          if (behavior === 'phone' && el.value.length > 10) {
+            el.value = el.value.slice(0, 10);
+          } else if (behavior === 'aadhaar' && el.value.length > 12) {
+            el.value = el.value.slice(0, 12);
+          } else if (behavior === 'pincode' && el.value.length > 6) {
+            el.value = el.value.slice(0, 6);
+          }
+        });
+      } else if (behavior === 'pan') {
+        el.addEventListener('input', () => {
+          el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+          if (el.value.length > 10) el.value = el.value.slice(0, 10);
+        });
+      }
+    });
+
     document.getElementById('public-reg-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('submit-reg-btn');
@@ -125,23 +150,36 @@ export async function renderPublicRegistrationPage(eventId) {
 
       const formData = {};
 
-      formSchema.forEach((field, idx) => {
+      for (let idx = 0; idx < formSchema.length; idx++) {
+        const field = formSchema[idx];
         const fieldId = `dyn-field-${idx}`;
         let val = '';
 
-        if (field.fieldType === 'radio') {
+        if (field.fieldType === 'radio' || (field.type || '').toLowerCase() === 'radio') {
           const checked = document.querySelector(`input[name="${field.name || fieldId}"]:checked`);
           val = checked ? checked.value : '';
         } else {
           const el = document.getElementById(fieldId);
           if (el) {
-            val = el.type === 'checkbox' ? el.checked : el.value;
+            val = el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value;
           }
+        }
+
+        const validationErr = validateFieldValue(field, val);
+        if (validationErr) {
+          showAlert(validationErr, 'danger');
+          const focusEl = document.getElementById(fieldId);
+          if (focusEl && typeof focusEl.focus === 'function') focusEl.focus();
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Registration';
+          }
+          return;
         }
 
         if (field.name) formData[field.name] = val;
         if (field.label) formData[field.label] = val;
-      });
+      }
 
       try {
         const regRes = await apiFetch(`/api/registrations/${event._id}`, {
