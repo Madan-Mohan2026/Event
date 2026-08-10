@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export const HeroSection: React.FC = () => {
   const scrollToEvents = () => {
@@ -16,12 +16,6 @@ export const HeroSection: React.FC = () => {
           
           {/* Left Main Banner Content */}
           <div className="lg:col-span-8 space-y-4">
-            
-            {/* Top Pill */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-purple-100">
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-              <span>Smart Event Registration System</span>
-            </div>
 
             {/* Headline */}
             <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black tracking-tight text-white leading-tight">
@@ -50,7 +44,7 @@ export const HeroSection: React.FC = () => {
           <div className="lg:col-span-4 hidden lg:block">
             <div className="p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 space-y-3 text-right">
               <p className="text-sm sm:text-base font-semibold text-purple-100 leading-relaxed">
-                Smart Event Platform a flagship initiative that brings to life the visionary mission of <strong className="text-white">"Empowering Global Networking & Digital Innovation"</strong>.
+                Ratan Tata Innovation Hub a flagship initiative that brings to life the Hon'ble Chief Minister <strong className="text-white font-extrabold">Mr. N. Chandrababu Naidu's</strong> visionary mission of <strong className="text-white font-extrabold">"One Family, One Entrepreneur"</strong>.
               </p>
               <div className="pt-2 flex items-center justify-end gap-2 text-xs font-bold text-yellow-300">
                 <span>Instant QR Check-in</span>
