@@ -42,11 +42,10 @@ export const Footer: React.FC = () => {
           <div className="space-y-3">
             <h4 className="text-white text-base font-bold">Quick Links</h4>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li className="hover:text-purple-400 transition-colors cursor-default">Home</li>
-              <li className="hover:text-purple-400 transition-colors cursor-default">All Events</li>
-              <li className="hover:text-purple-400 transition-colors cursor-default">Visit RTIH</li>
-              <li className="hover:text-purple-400 transition-colors cursor-default">Startup Login</li>
-              <li className="hover:text-purple-400 transition-colors cursor-default">Department Login</li>
+              <li><a href="/" className="hover:text-purple-400 transition-colors">Home</a></li>
+              <li><a href="/events" className="hover:text-purple-400 transition-colors">All Events</a></li>
+              <li><a href="https://event-admin-losq.onrender.com/#login" className="hover:text-purple-400 transition-colors">Super Admin Login</a></li>
+              <li><a href="https://event-admin-losq.onrender.com/#login" className="hover:text-purple-400 transition-colors">Admin Portal</a></li>
             </ul>
           </div>
 
