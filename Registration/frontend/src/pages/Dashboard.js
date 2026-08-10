@@ -227,7 +227,7 @@ export async function renderDashboard() {
       <div class="admin-layout">
         ${renderSidebar('dashboard', state.user)}
         <div class="main-wrapper">
-          ${renderHeader('Dashboard', false)}
+          ${renderHeader('System Admin Dashboard', true)}
           <main class="content-body"><div class="alert alert-danger">${error.message}</div></main>
         </div>
       </div>

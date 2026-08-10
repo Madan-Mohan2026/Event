@@ -3,9 +3,11 @@ import { Schema, model, Document } from 'mongoose';
 export interface IFormField {
   name: string;
   label: string;
-  type: 'text' | 'number' | 'email' | 'dropdown' | 'checkbox' | 'textarea';
+  type: string;
+  fieldType?: string;
   required: boolean;
-  options?: string[]; // Used for dropdowns
+  options?: string[];
+  placeholder?: string;
 }
 
 export interface ISession {
@@ -65,10 +67,12 @@ export interface IEvent extends Document {
 const formFieldSchema = new Schema<IFormField>({
   name: { type: String, required: true },
   label: { type: String, required: true },
-  type: { type: String, enum: ['text', 'number', 'email', 'dropdown', 'checkbox', 'textarea'], required: true },
+  type: { type: String, required: true },
+  fieldType: { type: String, default: '' },
   required: { type: Boolean, default: false },
-  options: { type: [String], default: [] }
-}, { _id: false });
+  options: { type: [String], default: [] },
+  placeholder: { type: String, default: '' }
+}, { _id: false, strict: false });
 
 const sessionSchema = new Schema<ISession>({
   title: { type: String, required: true },

@@ -3,6 +3,7 @@ import { fetchAllForms, saveFormSchema, deleteFormSchema } from '../services/for
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { showAlert } from '../utils/helpers.js';
+import { notifyFormCreated, notifyFormDeleted } from '../services/notificationService.js';
 import { renderFormCard } from '../components/forms/FormCard.js';
 import { renderFormQuestionCard } from '../components/forms/FormQuestionCard.js';
 import { openEditFormMetadataModal } from '../components/forms/EditFormMetadataModal.js';
@@ -94,7 +95,7 @@ export async function renderFormsListView() {
       <div class="admin-layout">
         ${renderSidebar('forms', state.user)}
         <div class="main-wrapper">
-          ${renderHeader('Forms', true)}
+          ${renderHeader('Forms', false)}
           <main class="content-body">${html}</main>
         </div>
       </div>
@@ -169,6 +170,7 @@ export async function renderFormsListView() {
         if (confirm(`Are you sure you want to reset the registration form for "${ev?.title || 'this event'}"?`)) {
           try {
             await deleteFormSchema(id);
+            notifyFormDeleted(ev?.title || 'Form');
             showAlert('Form schema reset successfully.', 'success');
             renderFormsListView();
           } catch (err) {
@@ -209,26 +211,25 @@ export async function renderFormStudioView(eventId) {
       selectedEvent = {
         _id: `new_${Date.now()}`,
         title: 'New Registration Form',
-        formSchema: [
-          { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-          { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-          { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-        ]
+        formSchema: []
       };
     }
 
-    if (!selectedEvent.formSchema || selectedEvent.formSchema.length === 0) {
-      selectedEvent.formSchema = [
-        { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-        { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-        { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-      ];
+    if (!selectedEvent.formSchema) {
+      selectedEvent.formSchema = [];
     }
 
     const drawStudioUI = () => {
-      const questionsHTML = (selectedEvent.formSchema || []).map((field, idx) =>
-        renderFormQuestionCard(field, idx, selectedEvent.formSchema.length)
-      ).join('');
+      const questionsHTML = (selectedEvent.formSchema && selectedEvent.formSchema.length > 0)
+        ? selectedEvent.formSchema.map((field, idx) =>
+            renderFormQuestionCard(field, idx, selectedEvent.formSchema.length)
+          ).join('')
+        : `
+          <div style="text-align:center; padding:40px 20px; background:#ffffff; border-radius:16px; border:2px dashed #cbd5e1; color:#64748b; margin-bottom:20px;">
+            <p style="font-size:16px; font-weight:700; color:#0f172a; margin-bottom:6px;">No questions added yet</p>
+            <p style="font-size:13px; margin-bottom:16px;">Click <strong>+ Add Question</strong> below to start adding fields to your registration form.</p>
+          </div>
+        `;
 
       const html = `
         <div class="form-designer-container">
@@ -273,7 +274,7 @@ export async function renderFormStudioView(eventId) {
         <div class="admin-layout">
           ${renderSidebar('forms', state.user)}
           <div class="main-wrapper">
-            ${renderHeader('Form Studio', true)}
+            ${renderHeader('Form Studio', false)}
             <main class="content-body">${html}</main>
           </div>
         </div>
@@ -452,6 +453,7 @@ export async function renderFormStudioView(eventId) {
             await saveFormSchema(selectedEvent._id, selectedEvent.formSchema, customTitle);
           }
 
+          notifyFormCreated(customTitle || selectedEvent?.title || 'Registration Form');
           showAlert('Form configuration saved successfully!', 'success');
           navigate('#forms');
         } catch (err) {
@@ -484,90 +486,87 @@ export async function renderFormPreviewView(eventId) {
       _id: eventId,
       title: 'Registration Form Preview',
       description: 'Registration form preview in read-only / freeze mode.',
-      formSchema: [
-        { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-        { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-        { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-      ]
+      formSchema: []
     };
 
-    const formSchema = Array.isArray(selectedEvent.formSchema) && selectedEvent.formSchema.length > 0
-      ? selectedEvent.formSchema
-      : [
-          { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-          { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-          { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-        ];
+    const formSchema = Array.isArray(selectedEvent.formSchema) ? selectedEvent.formSchema : [];
 
-    const fieldsHTML = formSchema.map((field, idx) => {
-      const type = (field.fieldType || field.type || 'short_text').toLowerCase();
-      const isReq = field.required === true;
-      const reqMark = isReq ? '<span style="color:#ef4444; font-weight:700;">*</span>' : '';
-      const isCoreField = field.name === 'participantName' || field.name === 'participantEmail' || field.name === 'fullName' || field.name === 'email';
+    const fieldsHTML = formSchema.length > 0
+      ? formSchema.map((field, idx) => {
+          const type = (field.fieldType || field.type || 'short_text').toLowerCase();
+          const isReq = field.required === true;
+          const reqMark = isReq ? '<span style="color:#ef4444; font-weight:700;">*</span>' : '';
+          const isCoreField = field.name === 'participantName' || field.name === 'participantEmail' || field.name === 'fullName' || field.name === 'email';
 
-      let inputElementHTML = '';
+          let inputElementHTML = '';
 
-      if (type === 'long_text' || type === 'textarea' || type === 'paragraph') {
-        inputElementHTML = `
-          <textarea class="form-control" rows="3" placeholder="${field.placeholder || 'e.g. Enter detailed response...'}" disabled readonly style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#f8fafc; color:#64748b; cursor:not-allowed; resize:none;"></textarea>
-        `;
-      } else if (type === 'dropdown' || type === 'select') {
-        const optionsHTML = (field.options || ['Option 1', 'Option 2']).map(opt => `<option value="${opt}">${opt}</option>`).join('');
-        inputElementHTML = `
-          <select class="form-control" disabled readonly style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#f8fafc; color:#64748b; cursor:not-allowed;">
-            <option value="">-- Select ${field.label} --</option>
-            ${optionsHTML}
-          </select>
-        `;
-      } else if (type === 'radio') {
-        const optionsHTML = (field.options || ['Option 1', 'Option 2']).map(opt => `
-          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#475569; cursor:not-allowed; opacity:0.85;">
-            <input type="radio" disabled style="accent-color:#4f46e5; cursor:not-allowed;" />
-            <span>${opt}</span>
-          </label>
-        `).join('');
-        inputElementHTML = `
-          <div style="display:flex; flex-direction:column; gap:8px; padding:6px 0;">
-            ${optionsHTML}
-          </div>
-        `;
-      } else if (type === 'checkbox') {
-        inputElementHTML = `
-          <div style="display:flex; align-items:center; gap:8px; padding:4px 0;">
-            <input type="checkbox" disabled style="width:18px; height:18px; accent-color:#4f46e5; cursor:not-allowed;" />
-            <span style="font-size:13px; color:#475569; font-weight:600; cursor:not-allowed;">${field.placeholder || 'Check this option'}</span>
-          </div>
-        `;
-      } else {
-        let inputType = 'text';
-        if (type === 'email') inputType = 'email';
-        if (type === 'date') inputType = 'date';
-        if (type === 'time') inputType = 'time';
+          if (type === 'long_text' || type === 'textarea' || type === 'paragraph') {
+            inputElementHTML = `
+              <textarea class="form-control" rows="3" placeholder="${field.placeholder || 'e.g. Enter detailed response...'}" disabled readonly style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#f8fafc; color:#64748b; cursor:not-allowed; resize:none;"></textarea>
+            `;
+          } else if (type === 'dropdown' || type === 'select') {
+            const optionsHTML = (field.options || ['Option 1', 'Option 2']).map(opt => `<option value="${opt}">${opt}</option>`).join('');
+            inputElementHTML = `
+              <select class="form-control" disabled readonly style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#f8fafc; color:#64748b; cursor:not-allowed;">
+                <option value="">-- Select ${field.label} --</option>
+                ${optionsHTML}
+              </select>
+            `;
+          } else if (type === 'radio') {
+            const optionsHTML = (field.options || ['Option 1', 'Option 2']).map(opt => `
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#475569; cursor:not-allowed; opacity:0.85;">
+                <input type="radio" disabled style="accent-color:#4f46e5; cursor:not-allowed;" />
+                <span>${opt}</span>
+              </label>
+            `).join('');
+            inputElementHTML = `
+              <div style="display:flex; flex-direction:column; gap:8px; padding:6px 0;">
+                ${optionsHTML}
+              </div>
+            `;
+          } else if (type === 'checkbox') {
+            inputElementHTML = `
+              <div style="display:flex; align-items:center; gap:8px; padding:4px 0;">
+                <input type="checkbox" disabled style="width:18px; height:18px; accent-color:#4f46e5; cursor:not-allowed;" />
+                <span style="font-size:13px; color:#475569; font-weight:600; cursor:not-allowed;">${field.placeholder || 'Check this option'}</span>
+              </div>
+            `;
+          } else {
+            let inputType = 'text';
+            if (type === 'email') inputType = 'email';
+            if (type === 'date') inputType = 'date';
+            if (type === 'time') inputType = 'time';
 
-        inputElementHTML = `
-          <input type="${inputType}" class="form-control" placeholder="${field.placeholder || 'e.g. Enter your response...'}" disabled readonly style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#f8fafc; color:#64748b; cursor:not-allowed;" />
-        `;
-      }
+            inputElementHTML = `
+              <input type="${inputType}" class="form-control" placeholder="${field.placeholder || 'e.g. Enter your response...'}" disabled readonly style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#f8fafc; color:#64748b; cursor:not-allowed;" />
+            `;
+          }
 
-      return `
-        <div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:16px; padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02); position:relative;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div style="font-size:11px; font-weight:800; color:#64748b; letter-spacing:0.5px; text-transform:uppercase;">
-              QUESTION ${idx + 1} ${isCoreField ? '<span style="background:#e0e7ff; color:#4338ca; padding:2px 8px; border-radius:6px; font-size:10px; margin-left:6px;">System Core</span>' : ''}
+          return `
+            <div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:16px; padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02); position:relative;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="font-size:11px; font-weight:800; color:#64748b; letter-spacing:0.5px; text-transform:uppercase;">
+                  QUESTION ${idx + 1} ${isCoreField ? '<span style="background:#e0e7ff; color:#4338ca; padding:2px 8px; border-radius:6px; font-size:10px; margin-left:6px;">System Core</span>' : ''}
+                </div>
+                <span style="font-size:11px; font-weight:700; color:#059669; background:#ecfdf5; padding:3px 10px; border-radius:20px; border:1px solid #a7f3d0; display:inline-flex; align-items:center; gap:4px;">
+                  🔒 Freeze Mode
+                </span>
+              </div>
+
+              <label style="font-weight:700; color:#0f172a; font-size:14px; margin-bottom:8px; display:block;">
+                ${field.label} ${reqMark}
+              </label>
+
+              ${inputElementHTML}
             </div>
-            <span style="font-size:11px; font-weight:700; color:#059669; background:#ecfdf5; padding:3px 10px; border-radius:20px; border:1px solid #a7f3d0; display:inline-flex; align-items:center; gap:4px;">
-              🔒 Freeze Mode
-            </span>
-          </div>
-
-          <label style="font-weight:700; color:#0f172a; font-size:14px; margin-bottom:8px; display:block;">
-            ${field.label} ${reqMark}
-          </label>
-
-          ${inputElementHTML}
+          `;
+        }).join('')
+      : `
+        <div style="text-align:center; padding:40px 20px; background:#ffffff; border-radius:16px; border:2px dashed #cbd5e1; color:#64748b; margin-bottom:20px;">
+          <p style="font-size:16px; font-weight:700; color:#0f172a; margin-bottom:6px;">No questions in this form</p>
+          <p style="font-size:13px; color:#64748b;">No form fields have been added yet.</p>
         </div>
       `;
-    }).join('');
 
     const html = `
       <div class="form-preview-container" style="max-width:800px; margin:0 auto; padding-bottom:60px;">
@@ -592,7 +591,7 @@ export async function renderFormPreviewView(eventId) {
       <div class="admin-layout">
         ${renderSidebar('forms', state.user)}
         <div class="main-wrapper">
-          ${renderHeader('Form Preview', true)}
+          ${renderHeader('Form Preview', false)}
           <main class="content-body">${html}</main>
         </div>
       </div>

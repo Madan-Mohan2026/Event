@@ -1,4 +1,11 @@
 import { apiFetch } from './api.js';
+import {
+  notifyRegistrationCreated,
+  notifyRegistrationDeleted,
+  notifyKitIssued,
+  notifyFoodCouponRedeemed,
+  notifyAttendanceMarked
+} from './notificationService.js';
 
 export async function getRegistrations(eventId, queryParams = {}) {
   const queryParamsWithView = { view: 'list', ...queryParams };
@@ -23,6 +30,8 @@ export async function registerForEvent(eventId, formData) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to submit registration');
+  const name = formData?.fullName || formData?.name || formData?.email || 'Attendee';
+  notifyRegistrationCreated(name);
   return data;
 }
 
@@ -33,6 +42,8 @@ export async function registerSpotParticipant(eventId, spotData) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Spot registration failed');
+  const name = spotData?.fullName || spotData?.name || spotData?.phone || 'Spot Registrant';
+  notifyRegistrationCreated(name);
   return data;
 }
 
@@ -51,6 +62,9 @@ export async function markSelfAttendance(registrationId, body = {}) {
     body: JSON.stringify(body)
   });
   const data = await res.json();
+  if (res.ok) {
+    notifyAttendanceMarked('Participant');
+  }
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -69,6 +83,9 @@ export async function issueKit(registrationId) {
     body: JSON.stringify({ registrationId })
   });
   const data = await res.json();
+  if (res.ok) {
+    notifyKitIssued('Participant');
+  }
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -87,6 +104,9 @@ export async function redeemFoodCoupon(registrationId) {
     body: JSON.stringify({ registrationId })
   });
   const data = await res.json();
+  if (res.ok) {
+    notifyFoodCouponRedeemed('Participant');
+  }
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -96,6 +116,9 @@ export async function scanKit(payload) {
     body: JSON.stringify(payload)
   });
   const data = await res.json();
+  if (res.ok && data.success) {
+    notifyKitIssued(data.participantName || 'Participant');
+  }
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -105,6 +128,9 @@ export async function scanFood(payload) {
     body: JSON.stringify(payload)
   });
   const data = await res.json();
+  if (res.ok && data.success) {
+    notifyFoodCouponRedeemed(data.participantName || 'Participant');
+  }
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -123,5 +149,6 @@ export async function deleteRegistration(id) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to delete registration');
+  notifyRegistrationDeleted('Participant');
   return data;
 }

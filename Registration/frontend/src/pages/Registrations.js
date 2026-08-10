@@ -3,7 +3,8 @@ import { getEvents } from '../services/eventService.js';
 import { getRegistrations, getAllRegistrations } from '../services/registrationService.js';
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
-import { exportToExcelCSV, showAlert } from '../utils/helpers.js';
+import { showAlert, exportToExcelCSV } from '../utils/helpers.js';
+import { notifyKitIssued } from '../services/notificationService.js';
 import { API_BASE } from '../utils/constants.js';
 
 export async function renderRegistrations() {
@@ -249,6 +250,9 @@ export async function renderGeneralRegistrations(activeFilters = {}) {
             this.textContent = newValue ? '✓ Issued' : 'Mark Issued';
             this.style.background = newValue ? '#dcfce7' : '#f1f5f9';
             this.style.color = newValue ? '#15803d' : '#64748b';
+            if (newValue) {
+              notifyKitIssued('Participant');
+            }
           }
         } catch (err) {
           console.error('Failed to update kit status:', err);

@@ -13,13 +13,21 @@ export async function renderPublicRegistrationPage(eventId) {
     }
     const event = await res.json();
 
-    const formSchema = Array.isArray(event.formSchema) && event.formSchema.length > 0
-      ? event.formSchema
-      : [
-          { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-          { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-          { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-        ];
+    const hasForm = (event.assignedFormId && String(event.assignedFormId).trim() !== '') || (Array.isArray(event.formSchema) && event.formSchema.length > 0);
+    if (!hasForm || event.status !== 'published') {
+      app.innerHTML = `
+        <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8fafc; padding: 20px;">
+          <div style="max-width: 480px; width: 100%; background: #ffffff; border-radius: 20px; padding: 40px; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+            <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">Registration Unavailable</h2>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px;">Registration is not available for this event because no form has been assigned or the event is not published yet.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const formSchema = Array.isArray(event.formSchema) ? event.formSchema : [];
 
     const fieldsHTML = formSchema.map((field, idx) => {
       const type = (field.fieldType || field.type || 'short_text').toLowerCase();

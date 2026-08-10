@@ -49,7 +49,7 @@ export function renderAdminPortalLayout(activeViewId, viewTitle, contentHTML) {
         <header style="background:#ffffff;border-bottom:1px solid #e2e8f0;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,0.04);flex-shrink:0;flex-wrap:wrap;gap:6px;">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <button id="ops-mobile-toggle-btn" class="mobile-hamburger-btn" aria-label="Toggle Sidebar">☰</button>
-            <button id="header-back-btn" class="header-back-btn" aria-label="Go Back" title="Go Back">←</button>
+            ${activeViewId === 'admin-dashboard' || activeViewId === 'dashboard' ? '' : '<button id="header-back-btn" class="header-back-btn" aria-label="Go Back" title="Go Back">←</button>'}
             <h2 style="font-size:16px;font-weight:800;color:#0f172a;letter-spacing:-0.3px;margin:0;">${viewTitle}</h2>
             <span style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;border:1px solid #c7d2fe;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;">📍 ${eventTitle}</span>
           </div>

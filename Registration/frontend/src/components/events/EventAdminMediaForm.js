@@ -10,23 +10,14 @@ export function renderEventAdminMediaForm(isEdit, eventObj) {
 
       <div class="form-grid-2col">
         <div class="form-group-custom">
-          <label class="form-label-custom">Assign to Admin/Staff</label>
-          <select id="ev-assigned-admin" class="form-control-custom select-custom">
-            <option value="unassigned">Unassigned (Super Admin Only)</option>
-            <option value="admin1">Admin User 1</option>
-            <option value="staff1">Staff Member</option>
-          </select>
-        </div>
-
-        <div class="form-group-custom">
           <label class="form-label-custom">Contact Number</label>
           <input type="text" id="ev-contact" class="form-control-custom" value="${contactNumber}" placeholder="+91 9876543210" />
         </div>
-      </div>
 
-      <div class="form-group-custom margin-top-12">
-        <label class="form-label-custom">Support Email</label>
-        <input type="email" id="ev-email" class="form-control-custom" value="${supportEmail}" placeholder="support@rtih.com" />
+        <div class="form-group-custom">
+          <label class="form-label-custom">Support Email</label>
+          <input type="email" id="ev-email" class="form-control-custom" value="${supportEmail}" placeholder="support@rtih.com" />
+        </div>
       </div>
 
       <div class="form-grid-2col margin-top-12">

@@ -1,10 +1,11 @@
 import { state, navigate } from '../app.js';
-import { getEvents, updateEvent, deleteEvent } from '../services/eventService.js';
+import { getEvents, getEventById, updateEvent, deleteEvent } from '../services/eventService.js';
 import { fetchAllForms } from '../services/formService.js';
 import { apiFetch } from '../services/api.js';
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { showAlert, copyToClipboard } from '../utils/helpers.js';
+import { notifyEventDeleted } from '../services/notificationService.js';
 import { renderEventCard } from '../components/events/EventCard.js';
 import { openCreateEventModal } from '../components/events/CreateEventModal.js';
 import { copyEventLink } from '../utils/eventHelpers.js';
@@ -24,37 +25,17 @@ export async function renderEventsList() {
     const events = Array.isArray(rawEvents) ? rawEvents : (rawEvents.events || []);
     state.events = events;
 
-    const dbForms = Array.isArray(rawForms) ? rawForms : (rawForms.forms || []);
+    const availableForms = Array.isArray(rawForms) ? rawForms : (rawForms.forms || []);
 
-    // Build map of assigned form IDs -> event IDs
     const assignedFormMap = new Map();
-    events.forEach(ev => {
-      if (ev.assignedFormId && String(ev.assignedFormId).trim() !== '') {
-        assignedFormMap.set(String(ev.assignedFormId).trim(), String(ev._id));
-      }
+    availableForms.forEach(f => {
+      if (f._id) assignedFormMap.set(String(f._id), f);
     });
 
-    // Combine standalone database forms and event forms into unified available forms array
-    const formsMap = new Map();
-
-    dbForms.forEach(f => {
-      formsMap.set(String(f._id), f);
-    });
-
-    events.forEach(ev => {
-      const fId = ev.assignedFormId ? String(ev.assignedFormId).trim() : String(ev._id);
-      if (!formsMap.has(fId)) {
-        formsMap.set(fId, {
-          _id: fId,
-          title: ev.title ? `${ev.title}` : 'Event Form'
-        });
-      }
-    });
-
-    const availableForms = Array.from(formsMap.values());
+    const assignedFormIdsSet = new Set(events.map(ev => String(ev.assignedFormId || '').trim()).filter(Boolean));
 
     const cardsHTML = events.length > 0
-      ? events.map(ev => renderEventCard(ev, availableForms, assignedFormMap)).join('')
+      ? events.map(ev => renderEventCard(ev, availableForms, assignedFormMap, assignedFormIdsSet)).join('')
       : `
         <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 18px; border: 1px solid #e2e8f0; color: #64748b;">
           <p style="font-size:18px; font-weight:700; margin-bottom:8px; color:#0f172a;">No events created yet.</p>
@@ -152,17 +133,38 @@ export async function renderEventsList() {
       });
     }
 
-    // Bind Assign Form Select Dropdown
-    document.querySelectorAll('.assign-form-select').forEach(sel => {
-      sel.addEventListener('change', async function() {
+    // Bind Assign Form Submit Button
+    document.querySelectorAll('.btn-assign-form-submit').forEach(btn => {
+      btn.addEventListener('click', async function() {
         const eventId = this.getAttribute('data-event-id');
-        const selectedFormId = this.value;
+        const selectEl = document.querySelector(`.form-select-assign-dropdown[data-event-id="${eventId}"]`);
+        const selectedFormId = selectEl ? selectEl.value : '';
+
+        if (!selectedFormId) {
+          showAlert('Please select a form to assign.', 'warning');
+          return;
+        }
+
         try {
           await updateEvent(eventId, { assignedFormId: selectedFormId });
-          showAlert('Assigned registration form updated successfully!', 'success');
+          showAlert('Form assigned successfully!', 'success');
           renderEventsList();
         } catch (err) {
-          showAlert('Failed to update assigned form: ' + err.message, 'danger');
+          showAlert('Failed to assign form: ' + err.message, 'danger');
+        }
+      });
+    });
+
+    // Bind Change Form Button
+    document.querySelectorAll('.btn-change-form-trigger').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const eventId = this.getAttribute('data-event-id');
+        const cardEl = document.querySelector(`.event-card-container[data-event-id="${eventId}"]`);
+        if (cardEl) {
+          const badgeContainer = cardEl.querySelector('.assigned-form-badge-container');
+          if (badgeContainer) badgeContainer.style.display = 'none';
+          const assignBox = cardEl.querySelector('.assign-form-box');
+          if (assignBox) assignBox.style.display = 'block';
         }
       });
     });
@@ -171,7 +173,17 @@ export async function renderEventsList() {
     document.querySelectorAll('.preview-event-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const id = this.getAttribute('data-id');
-        navigate(`#preview-form/${id}`);
+        const eventObj = state.events.find(ev => String(ev._id) === String(id));
+        const formId = (eventObj && eventObj.assignedFormId && String(eventObj.assignedFormId).trim() !== '')
+          ? String(eventObj.assignedFormId).trim()
+          : id;
+
+        if (!eventObj || (!eventObj.assignedFormId && (!eventObj.formSchema || eventObj.formSchema.length === 0))) {
+          showAlert('Assign Form before previewing.', 'warning');
+          return;
+        }
+
+        navigate(`#preview-form/${formId}`);
       });
     });
 
@@ -180,16 +192,16 @@ export async function renderEventsList() {
       btn.addEventListener('click', async function() {
         const id = this.getAttribute('data-id');
         const targetStatus = this.getAttribute('data-status');
-        const eventObj = state.events.find(ev => ev._id === id);
+        const eventObj = state.events.find(ev => String(ev._id) === String(id));
         const eventTitle = eventObj?.title || 'this event';
 
         if (targetStatus === 'published') {
-          const hasFormAssigned = Boolean(eventObj && ((eventObj.assignedFormId && String(eventObj.assignedFormId).trim() !== '') || (Array.isArray(eventObj.formSchema) && eventObj.formSchema.length > 0) || eventObj._id));
+          const hasFormAssigned = Boolean(eventObj && ((eventObj.assignedFormId && String(eventObj.assignedFormId).trim() !== '') || (Array.isArray(eventObj.formSchema) && eventObj.formSchema.length > 0)));
           if (!hasFormAssigned) {
             await showConfirmModal({
               icon: '⚠️',
               title: 'Form Not Assigned',
-              body: `Please assign a registration form before publishing this event.`,
+              body: `Assign Form before publishing this event.`,
               confirmLabel: 'OK, Got It',
               confirmColor: '#f59e0b'
             });
@@ -296,9 +308,17 @@ export async function renderEventsList() {
 
     // Bind Edit Button
     document.querySelectorAll('.edit-event-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
+      btn.addEventListener('click', async function() {
         const id = this.getAttribute('data-id');
-        const eventObj = state.events.find(ev => ev._id === id);
+        let eventObj = state.events.find(ev => String(ev._id) === String(id));
+        try {
+          const freshEvent = await getEventById(id);
+          if (freshEvent) {
+            eventObj = { ...eventObj, ...freshEvent };
+          }
+        } catch (err) {
+          // fallback to local eventObj
+        }
         if (eventObj) openCreateEventModal(eventObj, renderEventsList);
       });
     });
@@ -322,6 +342,7 @@ export async function renderEventsList() {
 
         try {
           await deleteEvent(id);
+          notifyEventDeleted(eventTitle);
           showAlert(`Event "${eventTitle}" deleted successfully!`, 'success');
           renderEventsList();
         } catch (err) {

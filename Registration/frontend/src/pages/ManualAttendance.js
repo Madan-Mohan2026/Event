@@ -3,6 +3,7 @@ import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { renderAdminPortalLayout } from './AdminDashboard.js';
 import { showAlert } from '../utils/helpers.js';
+import { notifyAttendanceMarked } from '../services/notificationService.js';
 import { apiFetch } from '../services/api.js';
 import { getEvents } from '../services/eventService.js';
 
@@ -268,6 +269,7 @@ export async function renderManualAttendance() {
             const checkinData = await checkinRes.json();
 
             if (checkinRes.ok && checkinData.success) {
+              notifyAttendanceMarked(p.name, p.eventTitle || 'Event');
               showAlert('✅ Attendance marked successfully!', 'success');
 
               // Ultra Neatly Designed Mobile Success Card

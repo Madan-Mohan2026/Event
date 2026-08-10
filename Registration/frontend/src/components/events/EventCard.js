@@ -5,7 +5,7 @@ import { renderAssignFormDropdown } from './AssignFormDropdown.js';
 import { renderEventCardActions } from './EventCardActions.js';
 import { formatEventDate, truncateDescription } from '../../utils/eventHelpers.js';
 
-export function renderEventCard(event, availableForms = [], assignedFormMap = new Map()) {
+export function renderEventCard(event, availableForms = [], assignedFormMap = new Map(), assignedFormIdsSet = new Set()) {
   if (!event) return '';
   const isPublished = event.status === 'published';
   const hasFormAssigned = Boolean(event.assignedFormId && String(event.assignedFormId).trim() !== '');
@@ -39,7 +39,7 @@ export function renderEventCard(event, availableForms = [], assignedFormMap = ne
         <p class="event-card-desc-text" title="${event.description || ''}">${descShort}</p>
 
         <!-- Assign Form Dropdown component -->
-        ${renderAssignFormDropdown(event, availableForms, assignedFormMap)}
+        ${renderAssignFormDropdown(event, availableForms, assignedFormMap, assignedFormIdsSet)}
 
         <!-- 4 Stats Pill Row -->
         ${renderEventCardStats(event)}

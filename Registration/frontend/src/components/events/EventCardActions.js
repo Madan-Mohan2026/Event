@@ -3,9 +3,9 @@ export function renderEventCardActions(event, hasFormAssigned) {
 
   return `
     <div class="event-card-actions-wrapper">
-      <!-- Main Action Row (Preview Form Builder + Publish/Unpublish) -->
+      <!-- Main Action Row (Preview Form + Publish/Unpublish) -->
       <div class="actions-primary-row">
-        <button type="button" class="btn-event-action preview-event-btn" data-id="${event._id}" title="Open Form Builder for assigned form">
+        <button type="button" class="btn-event-action preview-event-btn ${!hasFormAssigned ? 'btn-disabled-preview' : ''}" data-id="${event._id}" ${!hasFormAssigned ? 'disabled' : ''} title="${hasFormAssigned ? 'Preview assigned form' : 'Assign Form before previewing'}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>
@@ -19,14 +19,14 @@ export function renderEventCardActions(event, hasFormAssigned) {
             <span>Unpublish</span>
           </button>
         ` : `
-          <button type="button" class="btn-event-action publish-event-btn toggle-status-btn ${!hasFormAssigned ? 'btn-disabled-publish' : ''}" data-id="${event._id}" data-status="published" title="${hasFormAssigned ? 'Publish event' : 'Please assign a registration form before publishing this event'}">
+          <button type="button" class="btn-event-action publish-event-btn toggle-status-btn ${!hasFormAssigned ? 'btn-disabled-publish' : ''}" data-id="${event._id}" data-status="published" ${!hasFormAssigned ? 'disabled' : ''} title="${hasFormAssigned ? 'Publish event' : 'Assign Form before publishing'}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
             <span>Publish</span>
           </button>
         `}
       </div>
 
-      <!-- Secondary Utility Bar (Enabled only after Publish) -->
+      <!-- Secondary Utility Bar -->
       <div class="actions-utility-bar">
         <button type="button" class="btn-util-action copy-link-btn ${!isPublished ? 'util-disabled' : ''}" data-id="${event._id}" ${!isPublished ? 'disabled' : ''} title="${isPublished ? 'Copy Public Registration Link' : 'Publish event to enable link'}">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>

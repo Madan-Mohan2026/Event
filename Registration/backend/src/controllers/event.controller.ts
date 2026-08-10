@@ -100,7 +100,7 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
   console.log('⚡ [getEvents V2.0]: GET /api/events requested');
 
   try {
-    const { status, view } = req.query;
+    const { status } = req.query;
     const filter: any = {};
 
     // If not logged in as admin, show only published events. Otherwise, allow filtering by status.
@@ -110,9 +110,7 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
       filter.status = status;
     }
 
-    const selectProjection = view === 'list'
-      ? 'title eventCode date endDate time endTime location category participantType teamWide capacity assignedAdmin bannerImage status createdAt updatedAt'
-      : '-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema -agenda';
+    const selectProjection = '-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema -agenda';
 
     const [events, statsAgg] = await Promise.all([
       Event.find(filter)
@@ -279,9 +277,27 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
     const cleanSlug = String(title).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8);
     const generatedEventCode = `EVT-${cleanSlug || 'EVENT'}-${100 + totalEventsCount}`;
 
-    let sanitizedStatus: 'draft' | 'published' | 'archived' = 'published';
+    let sanitizedStatus: 'draft' | 'published' | 'archived' = 'draft';
     if (status && ['draft', 'published', 'archived'].includes(String(status).toLowerCase())) {
       sanitizedStatus = String(status).toLowerCase() as any;
+    }
+
+    let cleanAssignedFormId = assignedFormId ? String(assignedFormId).trim() : '';
+    let initialFormSchema: any[] = [];
+
+    if (cleanAssignedFormId !== '') {
+      const FormModel = Event.db ? Event.db.model('Form') : null;
+      if (FormModel) {
+        const formDoc: any = await FormModel.findById(cleanAssignedFormId).lean();
+        if (formDoc) {
+          initialFormSchema = (formDoc.formSchema && formDoc.formSchema.length > 0) ? formDoc.formSchema : (formDoc.fields || []);
+        }
+      }
+    }
+
+    if (sanitizedStatus === 'published' && cleanAssignedFormId === '' && initialFormSchema.length === 0) {
+      res.status(400).json({ error: 'Cannot publish event without an assigned registration form. Please assign a form first.' });
+      return;
     }
 
     const newEvent = new Event({
@@ -312,19 +328,14 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       bannerImage: bannerImage ? saveBase64ImageToDisk(bannerImage, 'banner') : '',
       agendaPdf: agendaPdf ? saveBase64PdfToDisk(agendaPdf, 'agenda') : '',
       status: sanitizedStatus,
-      assignedFormId: assignedFormId || '',
-      formSchema: [
-        { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-        { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-        { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-      ],
+      assignedFormId: cleanAssignedFormId,
+      formSchema: initialFormSchema,
       agenda: []
     });
 
-    if (assignedFormId && String(assignedFormId).trim() !== '') {
-      const assignedFormIdClean = String(assignedFormId).trim();
+    if (cleanAssignedFormId !== '') {
       const existingOtherEvent = await Event.findOne({
-        assignedFormId: assignedFormIdClean
+        assignedFormId: cleanAssignedFormId
       });
       if (existingOtherEvent) {
         res.status(400).json({
@@ -332,10 +343,6 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
         });
         return;
       }
-    }
-
-    if (!newEvent.assignedFormId) {
-      newEvent.assignedFormId = String(newEvent._id);
     }
 
     await newEvent.save();
@@ -455,6 +462,14 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     if (status !== undefined) {
       const s = String(status).toLowerCase();
       if (['draft', 'published', 'archived'].includes(s)) {
+        if (s === 'published') {
+          const formIdToCheck = assignedFormId !== undefined ? String(assignedFormId || '').trim() : String(event.assignedFormId || '').trim();
+          const hasSchema = event.formSchema && event.formSchema.length > 0;
+          if (!formIdToCheck && !hasSchema) {
+            res.status(400).json({ error: 'Cannot publish event without an assigned registration form. Please assign a form first.' });
+            return;
+          }
+        }
         event.status = s as any;
       }
     }
@@ -471,8 +486,19 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
           });
           return;
         }
+
+        const FormModel = (event as any).db ? (event as any).db.model('Form') : null;
+        if (FormModel) {
+          const formDoc: any = await FormModel.findById(assignedFormIdClean).lean();
+          if (formDoc) {
+            event.formSchema = (formDoc.formSchema && formDoc.formSchema.length > 0) ? formDoc.formSchema : (formDoc.fields || []);
+          }
+        }
+        event.assignedFormId = assignedFormIdClean;
+      } else {
+        event.assignedFormId = '';
+        event.formSchema = [];
       }
-      event.assignedFormId = assignedFormIdClean;
     }
 
     await event.save();

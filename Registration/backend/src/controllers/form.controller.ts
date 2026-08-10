@@ -61,11 +61,7 @@ export const createForm = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const initialSchema = formSchema || fields || [
-      { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
-      { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
-      { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: false, placeholder: '+91 9876543210' }
-    ];
+    const initialSchema = formSchema || fields || [];
 
     const newForm = new Form({
       title: title.trim(),

@@ -4,6 +4,7 @@ import { renderEventDateTimeForm } from './EventDateTimeForm.js';
 import { renderEventVenueForm } from './EventVenueForm.js';
 import { renderEventAdminMediaForm } from './EventAdminMediaForm.js';
 import { createEvent, updateEvent } from '../../services/eventService.js';
+import { notifyEventCreated, notifyEventUpdated } from '../../services/notificationService.js';
 import { showAlert } from '../../utils/helpers.js';
 
 export function openCreateEventModal(eventObj = null, onSuccessCallback = null) {
@@ -62,7 +63,10 @@ export function openCreateEventModal(eventObj = null, onSuccessCallback = null) 
     </div>
   `;
 
+  document.body.style.overflow = 'hidden';
+
   const closeModal = () => {
+    document.body.style.overflow = '';
     modalHolder.innerHTML = '';
     document.removeEventListener('keydown', escapeHandler);
   };
@@ -196,9 +200,11 @@ export function openCreateEventModal(eventObj = null, onSuccessCallback = null) 
     try {
       if (isEdit) {
         await updateEvent(eventObj._id, payload);
+        notifyEventUpdated(payload.title);
         showAlert(`Event "${payload.title}" updated successfully!`, 'success');
       } else {
         await createEvent(payload);
+        notifyEventCreated(payload.title);
         showAlert(`Event "${payload.title}" created successfully!`, 'success');
       }
       closeModal();
