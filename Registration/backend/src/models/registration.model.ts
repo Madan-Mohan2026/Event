@@ -7,6 +7,7 @@ export interface IRegistration extends Document {
   participantName: string;
   participantEmail: string;
   participantPhone: string;
+  participantPhoneNormalized?: string;
   eventId: Types.ObjectId;
   formData: Record<string, any>;
   registeredAt: Date;
@@ -61,6 +62,7 @@ const registrationSchema = new Schema<IRegistration>(
     participantName: { type: String, default: '' },
     participantEmail: { type: String, default: '' },
     participantPhone: { type: String, default: '' },
+    participantPhoneNormalized: { type: String, default: '' },
     eventId: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
     formData: { type: Schema.Types.Map, of: Schema.Types.Mixed, required: true },
     registeredAt: { type: Date, default: Date.now },
@@ -127,6 +129,10 @@ registrationSchema.index({ registeredAt: -1 });
 registrationSchema.index({ eventId: 1, status: 1 });
 registrationSchema.index({ eventId: 1, registeredAt: -1 });
 registrationSchema.index({ eventId: 1, participantPhone: 1 });
+registrationSchema.index(
+  { eventId: 1, participantPhoneNormalized: 1 },
+  { unique: true, partialFilterExpression: { participantPhoneNormalized: { $gt: '' } } }
+);
 registrationSchema.index({ eventId: 1, registrationId: 1 });
 registrationSchema.index({ eventId: 1, attended: 1 });
 registrationSchema.index({ eventId: 1, kitIssued: 1 });

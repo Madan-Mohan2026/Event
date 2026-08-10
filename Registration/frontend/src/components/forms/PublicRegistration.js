@@ -154,7 +154,10 @@ export async function renderPublicRegistrationPage(eventId) {
 
         if (!regRes.ok) {
           const errData = await regRes.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to submit registration.');
+          const errorObj = new Error(errData.error || 'Failed to submit registration.');
+          errorObj.code = errData.code;
+          errorObj.status = regRes.status;
+          throw errorObj;
         }
 
         const result = await regRes.json();
@@ -200,7 +203,11 @@ export async function renderPublicRegistrationPage(eventId) {
           submitBtn.disabled = false;
           submitBtn.textContent = 'Submit Registration';
         }
-        showAlert(err.message, 'danger');
+        if (err.status === 409 || err.code === 'DUPLICATE_REGISTRATION') {
+          showAlert(err.message || 'This mobile number is already registered for this event.', 'warning');
+        } else {
+          showAlert(err.message || 'Failed to submit registration.', 'danger');
+        }
       }
     });
 

@@ -10,6 +10,7 @@ import { broadcastRealtimeEvent } from '../services/realtime.service';
 import { recordEventAction } from '../services/eventLog.service';
 import { clearDashboardCache } from './dashboard.controller';
 import { clearEventsCache } from './event.controller';
+import { normalizePhoneNumber } from '../utils/phoneHelpers';
 
 // Helper to validate ObjectId strings
 const isValidObjectId = (id: any): boolean => {
@@ -239,6 +240,31 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
     const pName = extractedDetails.participantName;
     const pEmail = extractedDetails.participantEmail;
     const pPhone = extractedDetails.participantPhone;
+    const normPhone = normalizePhoneNumber(pPhone);
+
+    // Duplicate phone registration safeguard per event (Same Event + Same Phone)
+    if (normPhone) {
+      const existingPhoneReg = await Registration.findOne({
+        eventId,
+        $or: [
+          { participantPhoneNormalized: normPhone },
+          { participantPhone: normPhone },
+          { participantPhone: pPhone },
+          { 'formData.participantPhone': normPhone },
+          { 'formData.phone': normPhone },
+          { 'formData.mobile': normPhone }
+        ]
+      });
+
+      if (existingPhoneReg) {
+        res.status(409).json({
+          success: false,
+          error: 'This mobile number is already registered for this event.',
+          code: 'DUPLICATE_REGISTRATION'
+        });
+        return;
+      }
+    }
 
     // Generate unique Registration Reference ID using structured (EventOrder * 1000 + ParticipantNum)
     const regId = await generateStructuredRegistrationId(eventId, event.title);
@@ -262,6 +288,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       participantName: pName,
       participantEmail: pEmail,
       participantPhone: pPhone,
+      participantPhoneNormalized: normPhone,
       participant: {
         fullName: pName,
         email: pEmail,
@@ -278,6 +305,14 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       console.log(`[registration]: Saved registration ${registration._id} to collection 'registrations' for event ${eventId}`);
     } catch (saveError: any) {
       console.error(`[registration]: FAILED to save registration for event ${eventId}:`, saveError.message);
+      if (saveError.code === 11000 || (saveError.message && saveError.message.includes('E11000'))) {
+        res.status(409).json({
+          success: false,
+          error: 'This mobile number is already registered for this event.',
+          code: 'DUPLICATE_REGISTRATION'
+        });
+        return;
+      }
       res.status(500).json({ error: 'Failed to save registration to database. Please try again.' });
       return;
     }
@@ -1182,6 +1217,31 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
     const pName = extractedDetails.participantName;
     const pEmail = extractedDetails.participantEmail;
     const pPhone = extractedDetails.participantPhone;
+    const normPhone = normalizePhoneNumber(pPhone);
+
+    if (normPhone) {
+      const existingPhoneReg = await Registration.findOne({
+        eventId,
+        $or: [
+          { participantPhoneNormalized: normPhone },
+          { participantPhone: normPhone },
+          { participantPhone: pPhone },
+          { 'formData.participantPhone': normPhone },
+          { 'formData.phone': normPhone },
+          { 'formData.mobile': normPhone }
+        ]
+      });
+
+      if (existingPhoneReg) {
+        res.status(409).json({
+          success: false,
+          error: 'This mobile number is already registered for this event.',
+          code: 'DUPLICATE_REGISTRATION'
+        });
+        return;
+      }
+    }
+
     const regId = await generateStructuredRegistrationId(eventId, event.title);
 
     // Create Registration Document
@@ -1191,6 +1251,7 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
       participantName: pName,
       participantEmail: pEmail,
       participantPhone: pPhone,
+      participantPhoneNormalized: normPhone,
       formData: sanitizedData,
       registeredAt: now,
       attended: true,
@@ -1228,7 +1289,19 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
     registration.foodQrToken = foodToken;
     registration.foodQrCodeDataUrl = foodDataUrl;
 
-    await registration.save();
+    try {
+      await registration.save();
+    } catch (saveError: any) {
+      if (saveError.code === 11000 || (saveError.message && saveError.message.includes('E11000'))) {
+        res.status(409).json({
+          success: false,
+          error: 'This mobile number is already registered for this event.',
+          code: 'DUPLICATE_REGISTRATION'
+        });
+        return;
+      }
+      throw saveError;
+    }
 
     const shortRegId = registration.registrationId || `#REG-${String(registration._id).substring(18).toUpperCase()}`;
 
