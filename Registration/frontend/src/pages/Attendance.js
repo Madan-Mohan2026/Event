@@ -206,6 +206,7 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
   // Case 1 — Success Screen (Food Coupon Verified)
   function renderFoodSuccessScreen(participant) {
     const regId = participant.registrationId || 'REG-XXXXX';
+    const pName = participant.name || participant.participantName || participant.fullName || (participant.participant && participant.participant.fullName) || 'Participant';
 
     app.innerHTML = `
       <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#251b60;">
@@ -216,7 +217,7 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
           </div>
 
           <h1 style="font-size:26px; font-weight:900; color:#0f172a; margin-bottom:8px; letter-spacing:-0.4px; line-height:1.25;">
-            Welcome to ${pageState.eventTitle}!
+            Welcome ${pName}!
           </h1>
 
           <div style="font-size:13px; font-weight:700; color:#64748b; margin-bottom:24px;">
