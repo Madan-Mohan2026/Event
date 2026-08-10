@@ -61,7 +61,13 @@ export const EventDetailsPage: React.FC = () => {
         {/* Back Link */}
         <div>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => {
+              if (window.history.length > 2) {
+                navigate(-1);
+              } else {
+                navigate('/');
+              }
+            }}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#7E22CE] shadow-sm transition-all hover:border-purple-200 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
