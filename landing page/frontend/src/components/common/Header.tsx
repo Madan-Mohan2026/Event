@@ -40,7 +40,7 @@ export const Header: React.FC = () => {
               Home
             </button>
             <button type="button" className="hover:text-[#5B21B6] transition-colors cursor-default">
-              Challenges
+              Events
             </button>
             <div className="flex items-center gap-1 cursor-default hover:text-[#5B21B6] transition-colors">
               <span>Login</span>

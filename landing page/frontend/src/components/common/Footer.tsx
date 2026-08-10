@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
         <div className="bg-[#7E22CE] bg-gradient-to-r from-[#6B21A8] via-[#7E22CE] to-[#7E22CE] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center md:text-left">
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Have a Challenge Idea?
+              Have an Event Idea?
             </h3>
             <p className="text-purple-100 text-sm max-w-xl">
               Partner with us to crowdsource innovative solutions for your department.
@@ -34,7 +34,7 @@ export const Footer: React.FC = () => {
           <div className="space-y-3">
             <h4 className="text-white text-base font-bold">About RTIH</h4>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Ratan Tata Innovation Hub — Empowering entrepreneurs through technology and innovation. Building a bridge between government challenges and innovative solutions.
+              Ratan Tata Innovation Hub — Empowering entrepreneurs through technology and innovation. Building a bridge between government events and innovative solutions.
             </p>
           </div>
 
@@ -43,7 +43,7 @@ export const Footer: React.FC = () => {
             <h4 className="text-white text-base font-bold">Quick Links</h4>
             <ul className="space-y-2 text-sm text-slate-400">
               <li className="hover:text-purple-400 transition-colors cursor-default">Home</li>
-              <li className="hover:text-purple-400 transition-colors cursor-default">All Challenges</li>
+              <li className="hover:text-purple-400 transition-colors cursor-default">All Events</li>
               <li className="hover:text-purple-400 transition-colors cursor-default">Visit RTIH</li>
               <li className="hover:text-purple-400 transition-colors cursor-default">Startup Login</li>
               <li className="hover:text-purple-400 transition-colors cursor-default">Department Login</li>
@@ -73,7 +73,7 @@ export const Footer: React.FC = () => {
           <div className="space-y-3">
             <h4 className="text-white text-base font-bold">Connect</h4>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Stay updated with the latest challenges and innovation opportunities.
+              Stay updated with the latest events and innovation opportunities.
             </p>
 
             <div className="flex items-center gap-2.5 pt-2">
