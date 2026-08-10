@@ -164,9 +164,9 @@ export const FeaturedEventsSection: React.FC = () => {
               </select>
             </div>
 
-            {/* Event Organizer Team Select */}
+            {/* Event Organizer Select */}
             <div className="flex items-center gap-2 text-sm text-slate-700 font-semibold shrink-0">
-              <span>Event Organizer Team:</span>
+              <span>Event Organizer:</span>
               <select
                 value={activeTeam}
                 onChange={(e) => setActiveTeam(e.target.value)}

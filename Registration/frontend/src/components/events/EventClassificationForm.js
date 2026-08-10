@@ -57,10 +57,10 @@ export function renderEventClassificationForm(isEdit, eventObj) {
         </div>
       </div>
 
-      <!-- Row 2: Event Organizer Team & Event Type -->
+      <!-- Row 2: Event Organizer & Event Type -->
       <div class="form-grid-2col margin-top-12">
         <div class="form-group-custom">
-          <label class="form-label-custom">Event Organizer Team</label>
+          <label class="form-label-custom">Event Organizer</label>
           <select id="ev-organizer-team" class="form-control-custom select-custom">
             ${organizerTeams.map(t => `<option value="${t}" ${currentOrganizerTeam === t ? 'selected' : ''}>${t}</option>`).join('')}
           </select>
