@@ -259,7 +259,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       if (existingPhoneReg) {
         res.status(409).json({
           success: false,
-          error: 'This mobile number is already registered for this event.',
+          error: 'You have already registered for this event.',
           code: 'DUPLICATE_REGISTRATION'
         });
         return;
@@ -308,7 +308,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       if (saveError.code === 11000 || (saveError.message && saveError.message.includes('E11000'))) {
         res.status(409).json({
           success: false,
-          error: 'This mobile number is already registered for this event.',
+          error: 'You have already registered for this event.',
           code: 'DUPLICATE_REGISTRATION'
         });
         return;
@@ -1235,7 +1235,7 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
       if (existingPhoneReg) {
         res.status(409).json({
           success: false,
-          error: 'This mobile number is already registered for this event.',
+          error: 'You have already registered for this event.',
           code: 'DUPLICATE_REGISTRATION'
         });
         return;
@@ -1295,7 +1295,7 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
       if (saveError.code === 11000 || (saveError.message && saveError.message.includes('E11000'))) {
         res.status(409).json({
           success: false,
-          error: 'This mobile number is already registered for this event.',
+          error: 'You have already registered for this event.',
           code: 'DUPLICATE_REGISTRATION'
         });
         return;

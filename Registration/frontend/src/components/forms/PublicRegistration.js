@@ -204,7 +204,7 @@ export async function renderPublicRegistrationPage(eventId) {
           submitBtn.textContent = 'Submit Registration';
         }
         if (err.status === 409 || err.code === 'DUPLICATE_REGISTRATION') {
-          showAlert(err.message || 'This mobile number is already registered for this event.', 'warning');
+          showAlert(err.message || 'You have already registered for this event.', 'warning');
         } else {
           showAlert(err.message || 'Failed to submit registration.', 'danger');
         }
