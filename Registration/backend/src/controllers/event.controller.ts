@@ -4,7 +4,7 @@ import { Event } from '../models/event.model';
 import { Registration } from '../models/registration.model';
 import { Form } from '../models/Form';
 import { logAdminAction } from '../services/audit.service';
-import { saveBase64ImageToDisk, saveBase64PdfToDisk } from '../services/bannerStorage.service';
+import { saveBase64ImageToS3, saveBase64PdfToS3 } from '../services/s3Storage.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { encryptToken, generateQrDataUrl, getAccessibleHostUrl } from '../utils/qr.utils';
 import { clearDashboardCache } from './dashboard.controller';
@@ -325,8 +325,8 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       organizerName: organizerName || req.body.organizerTeam || '',
       contactNumber: contactNumber || '',
       supportEmail: supportEmail || '',
-      bannerImage: bannerImage ? saveBase64ImageToDisk(bannerImage, 'banner') : '',
-      agendaPdf: agendaPdf ? saveBase64PdfToDisk(agendaPdf, 'agenda') : '',
+      bannerImage: bannerImage ? await saveBase64ImageToS3(bannerImage, 'banner') : '',
+      agendaPdf: agendaPdf ? await saveBase64PdfToS3(agendaPdf, 'agenda') : '',
       status: sanitizedStatus,
       assignedFormId: cleanAssignedFormId,
       formSchema: initialFormSchema,
@@ -457,8 +457,8 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     }
     if (contactNumber !== undefined) event.contactNumber = contactNumber;
     if (supportEmail !== undefined) event.supportEmail = supportEmail;
-    if (bannerImage !== undefined) event.bannerImage = bannerImage ? saveBase64ImageToDisk(bannerImage, 'banner') : '';
-    if (agendaPdf !== undefined && agendaPdf !== '') event.agendaPdf = saveBase64PdfToDisk(agendaPdf, 'agenda');
+    if (bannerImage !== undefined) event.bannerImage = bannerImage ? await saveBase64ImageToS3(bannerImage, 'banner') : '';
+    if (agendaPdf !== undefined && agendaPdf !== '') event.agendaPdf = await saveBase64PdfToS3(agendaPdf, 'agenda');
     if (status !== undefined) {
       const s = String(status).toLowerCase();
       if (['draft', 'published', 'archived'].includes(s)) {

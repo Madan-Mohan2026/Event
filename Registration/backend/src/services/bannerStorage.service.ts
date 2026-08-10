@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { Event } from '../models/event.model';
 import { Registration } from '../models/registration.model';
+import { saveBase64ImageToS3 } from './s3Storage.service';
 
 const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads/banners');
 
@@ -115,7 +116,7 @@ export async function migrateBase64BannersToFiles(): Promise<void> {
 
       for (const ev of base64Events) {
         if (ev.bannerImage && ev.bannerImage.startsWith('data:image/')) {
-          const filePathUrl = saveBase64ImageToDisk(ev.bannerImage, `event_${ev._id}`);
+          const filePathUrl = await saveBase64ImageToS3(ev.bannerImage, `event_${ev._id}`);
           await Event.updateOne({ _id: ev._id }, { $set: { bannerImage: filePathUrl } });
           count++;
         }
