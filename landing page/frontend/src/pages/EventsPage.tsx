@@ -18,13 +18,17 @@ export const EventsPage: React.FC = () => {
 
   const categories: EventCategory[] = [
     'All',
+    'Startups',
     'AI & Tech',
     'Startup & Innovation',
+    'MSMEs',
+    'Students',
     'Smart Cities',
     'Green Energy',
     'Women Entrepreneurs',
     'Digital Transformation',
-    'Leadership'
+    'Leadership',
+    'Others'
   ];
 
   useEffect(() => {

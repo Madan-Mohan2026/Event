@@ -102,6 +102,41 @@ export function openCreateEventModal(eventObj = null, onSuccessCallback = null) 
     }
   }
 
+  // Handle Participant Type multi-select checkboxes
+  const ptCheckboxes = document.querySelectorAll('.ev-pt-checkbox');
+  const syncParticipantTypeInput = () => {
+    const checked = Array.from(document.querySelectorAll('.ev-pt-checkbox:checked')).map(cb => cb.value);
+    const catInput = document.getElementById('ev-category');
+    if (catInput) {
+      catInput.value = checked.length > 0 ? checked.join(', ') : 'Startups';
+    }
+    ptCheckboxes.forEach(cb => {
+      const label = cb.closest('.pt-chip');
+      if (label) {
+        if (cb.checked) {
+          label.style.border = '1.5px solid #4f46e5';
+          label.style.background = '#eef2ff';
+          label.style.color = '#4338ca';
+        } else {
+          label.style.border = '1.5px solid #e2e8f0';
+          label.style.background = '#f8fafc';
+          label.style.color = '#475569';
+        }
+      }
+    });
+  };
+
+  ptCheckboxes.forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      if (e.target.value === 'All' && e.target.checked) {
+        ptCheckboxes.forEach(c => { c.checked = true; });
+      } else if (e.target.value === 'All' && !e.target.checked) {
+        ptCheckboxes.forEach(c => { c.checked = (c.value === 'Startups'); });
+      }
+      syncParticipantTypeInput();
+    });
+  });
+
   // Handle Banner file input display name & Base64 reader
   document.getElementById('ev-banner-file')?.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
@@ -167,11 +202,14 @@ export function openCreateEventModal(eventObj = null, onSuccessCallback = null) 
       registrationEndTime = parts[1] || '';
     }
 
+    const selectedCategoryVal = Array.from(document.querySelectorAll('.ev-pt-checkbox:checked')).map(el => el.value).join(', ') || document.getElementById('ev-category')?.value || 'Startups';
+
     const payload = {
       title: document.getElementById('ev-title').value.trim(),
       summary: document.getElementById('ev-summary')?.value.trim() || '',
       description: document.getElementById('ev-desc').value.trim(),
-      category: document.getElementById('ev-category')?.value || 'Startups',
+      category: selectedCategoryVal,
+      participantType: selectedCategoryVal,
       teamWide: document.getElementById('ev-teamwide')?.value || 'Innotribes',
       organizerTeam: document.getElementById('ev-organizer-team')?.value || 'All Teams',
       eventType: document.getElementById('ev-event-type')?.value || 'All Event Types',

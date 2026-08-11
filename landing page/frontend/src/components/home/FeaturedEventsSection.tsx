@@ -64,6 +64,8 @@ export const FeaturedEventsSection: React.FC = () => {
         const teamClean = teamQuery.replace(/\s*(hub|spoke)\s*/g, '').trim();
 
         const matchTeam =
+          !event.organizerTeam ||
+          event.organizerTeam === 'All Teams' ||
           (event.organizerTeam && event.organizerTeam.toLowerCase().includes(teamQuery)) ||
           (event.organizerName && event.organizerName.toLowerCase().includes(teamQuery)) ||
           (event.teamWide && event.teamWide.toLowerCase().includes(teamQuery)) ||
@@ -74,8 +76,7 @@ export const FeaturedEventsSection: React.FC = () => {
           (event.shortDescription && event.shortDescription.toLowerCase().includes(teamQuery)) ||
           (event.tags && event.tags.some(t => t.toLowerCase().includes(teamQuery) || t.toLowerCase().includes(teamClean)));
 
-        // If no explicit team matched, pass through smoothly so list remains functional
-        if (!matchTeam && event.organizerTeam) {
+        if (!matchTeam) {
           return false;
         }
       }
@@ -85,14 +86,15 @@ export const FeaturedEventsSection: React.FC = () => {
         const typeQuery = activeType.toLowerCase().trim();
 
         const matchType =
+          !event.eventType ||
+          event.eventType === 'All Event Types' ||
           (event.participantType && event.participantType.toLowerCase().includes(typeQuery)) ||
           (event.category && event.category.toLowerCase().includes(typeQuery)) ||
           (event.title && event.title.toLowerCase().includes(typeQuery)) ||
           (event.shortDescription && event.shortDescription.toLowerCase().includes(typeQuery)) ||
           (event.tags && event.tags.some(t => t.toLowerCase().includes(typeQuery)));
 
-        // If no explicit type matched, pass through smoothly if event doesn't specify participantType
-        if (!matchType && event.participantType) {
+        if (!matchType) {
           return false;
         }
       }

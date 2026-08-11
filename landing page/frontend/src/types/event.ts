@@ -3,11 +3,15 @@ export type EventStatus = 'upcoming' | 'ongoing' | 'completed';
 export type EventCategory = 
   | 'AI & Tech'
   | 'Startup & Innovation'
+  | 'Startups'
+  | 'MSMEs'
+  | 'Students'
   | 'Smart Cities'
   | 'Green Energy'
   | 'Women Entrepreneurs'
   | 'Digital Transformation'
   | 'Leadership'
+  | 'Others'
   | 'All';
 
 export interface Speaker {
