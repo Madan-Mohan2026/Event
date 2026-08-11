@@ -1,25 +1,16 @@
 import { getStatusBadgeConfig, getCategoryBadgeConfig, resolveImageUrl } from '../../utils/eventHelpers.js';
 
+const FALLBACK_BANNER = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80';
+
 export function renderEventCardHeader(event) {
   const statusConfig = getStatusBadgeConfig(event.status);
   const catConfig = getCategoryBadgeConfig(event.category);
   const rawBanner = event.bannerImage || event.bannerImageUrl || event.imagePath || '';
-  const bannerImage = resolveImageUrl(rawBanner);
+  const bannerImage = resolveImageUrl(rawBanner) || FALLBACK_BANNER;
 
   return `
     <div class="event-card-header-banner">
-      ${bannerImage ? `
-        <img src="${bannerImage}" alt="${event.title}" class="event-banner-img" loading="lazy" decoding="async" />
-      ` : `
-        <div class="event-banner-fallback">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="3" ry="3"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-        </div>
-      `}
+      <img src="${bannerImage}" alt="${event.title || 'Event'}" class="event-banner-img" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='${FALLBACK_BANNER}';" />
 
       <!-- Status Badge Top-Left -->
       <div class="event-badge-status ${statusConfig.className}">

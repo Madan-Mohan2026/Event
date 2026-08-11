@@ -12,18 +12,7 @@ export function renderFormCard(event) {
     <div class="form-card-container" data-event-id="${event._id}">
       <!-- Top Banner Image -->
       <div class="form-card-banner">
-        ${bannerImage ? `
-          <img src="${bannerImage}" alt="${event.title}" class="form-banner-img" />
-        ` : `
-          <div class="form-banner-fallback">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-            </svg>
-          </div>
-        `}
+        <img src="${bannerImage || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80'}" alt="${event.title || 'Form Banner'}" class="form-banner-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80';" />
 
         <!-- Assigned / Unassigned Badge Overlay Top-Left -->
         <div class="form-card-badge ${isAssigned ? 'badge-assigned' : 'badge-unassigned'}">

@@ -53,11 +53,17 @@ export function getCategoryBadgeConfig(category) {
 
 export function resolveImageUrl(url) {
   if (!url || typeof url !== 'string') return '';
-  if (url.startsWith('/uploads')) {
-    const apiBase = import.meta.env.VITE_API_BASE_URL || API_BASE || 'http://localhost:5000';
-    return `${apiBase.replace(/\/$/, '')}${url}`;
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
   }
-  return url;
+  if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const apiBase = import.meta.env.VITE_API_BASE_URL || API_BASE || '';
+    return `${apiBase.replace(/\/$/, '')}${cleanPath}`;
+  }
+  return trimmed;
 }
 
 export async function copyEventLink(eventId) {
