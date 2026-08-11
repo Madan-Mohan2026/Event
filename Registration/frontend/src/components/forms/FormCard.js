@@ -2,7 +2,16 @@ import { formatCreatedDate } from '../../utils/formHelpers.js';
 import { resolveImageUrl } from '../../utils/eventHelpers.js';
 
 export function renderFormCard(event) {
-  const fieldsCount = Array.isArray(event.formSchema) ? event.formSchema.length : (event.formSchema ? 3 : 0);
+  let fieldsCount = 0;
+  if (Array.isArray(event.formSchema)) {
+    event.formSchema.forEach(item => {
+      if (item && (item.isSection === true || Array.isArray(item.fields))) {
+        fieldsCount += (Array.isArray(item.fields) ? item.fields.length : 0);
+      } else if (item) {
+        fieldsCount += 1;
+      }
+    });
+  }
   const responsesCount = event.regsCount !== undefined ? event.regsCount : (event.responsesCount || 0);
   const createdDateFormatted = formatCreatedDate(event.createdAt || event.date);
   const isAssigned = event.isAssigned === true || (!!event.assignedFormId && String(event.assignedFormId).trim() !== '');

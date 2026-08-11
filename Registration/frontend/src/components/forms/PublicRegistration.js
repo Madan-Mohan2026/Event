@@ -30,18 +30,41 @@ export async function renderPublicRegistrationPage(eventId) {
 
     const formSchema = Array.isArray(event.formSchema) ? event.formSchema : [];
 
-    const fieldsHTML = formSchema.map((field, idx) => {
+    // Helper to flatten fields from sections or flat array
+    const extractFlatFields = (schema) => {
+      const flat = [];
+      if (!Array.isArray(schema)) return flat;
+      schema.forEach(item => {
+        if (!item) return;
+        if (item.isSection === true || Array.isArray(item.fields)) {
+          if (Array.isArray(item.fields)) {
+            item.fields.forEach(f => { if (f) flat.push(f); });
+          }
+        } else {
+          flat.push(item);
+        }
+      });
+      return flat;
+    };
+
+    const allFlatFields = extractFlatFields(formSchema);
+    const hasSections = formSchema.some(item => item && (item.isSection === true || Array.isArray(item.fields)));
+
+    let fieldIdxCounter = 0;
+
+    const renderFieldHTML = (field, fieldId) => {
       const type = (field.fieldType || field.type || 'short_text').toLowerCase();
       const behavior = getFieldBehavior(field);
       const isReq = field.required === true;
       const reqMark = isReq ? '<span style="color:#ef4444;">*</span>' : '';
-      const fieldId = `dyn-field-${idx}`;
+      const helpTextHTML = field.helpText ? `<p style="font-size:11.5px; color:#64748b; margin:4px 0 0 0;">${field.helpText}</p>` : '';
 
       if (type === 'long_text' || type === 'textarea' || type === 'paragraph') {
         return `
           <div class="form-group" style="margin-bottom:18px;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
             <textarea id="${fieldId}" name="${field.name || fieldId}" class="form-control" rows="3" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px;"></textarea>
+            ${helpTextHTML}
           </div>
         `;
       } else if (type === 'dropdown' || type === 'select') {
@@ -53,6 +76,7 @@ export async function renderPublicRegistrationPage(eventId) {
               <option value="">-- Select ${field.label} --</option>
               ${optionsHTML}
             </select>
+            ${helpTextHTML}
           </div>
         `;
       } else if (type === 'radio') {
@@ -68,26 +92,86 @@ export async function renderPublicRegistrationPage(eventId) {
             <div style="display:flex; flex-direction:column; gap:8px;">
               ${optionsHTML}
             </div>
+            ${helpTextHTML}
           </div>
         `;
-      } else if (type === 'checkbox') {
+      } else if (type === 'checkbox' || type === 'checkboxes') {
+        if (Array.isArray(field.options) && field.options.length > 1) {
+          const optionsHTML = field.options.map(opt => `
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#334155; cursor:pointer;">
+              <input type="checkbox" name="${field.name || fieldId}" value="${opt}" style="width:16px; height:16px; accent-color:#4f46e5;" />
+              <span>${opt}</span>
+            </label>
+          `).join('');
+          return `
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:8px; display:block;">${field.label} ${reqMark}</label>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${optionsHTML}
+              </div>
+              ${helpTextHTML}
+            </div>
+          `;
+        }
         return `
           <div class="form-group" style="margin-bottom:18px; display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="${fieldId}" name="${field.name || fieldId}" style="width:18px; height:18px; accent-color:#4f46e5; cursor:pointer;" ${isReq ? 'required' : ''} />
             <label for="${fieldId}" style="font-weight:600; color:#334155; font-size:13px; cursor:pointer;">${field.label} ${reqMark}</label>
           </div>
         `;
+      } else if (type === 'file' || type === 'image') {
+        return `
+          <div class="form-group" style="margin-bottom:18px;">
+            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
+            <input type="file" id="${fieldId}" name="${field.name || fieldId}" class="form-control" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:8px 12px; font-size:13px; background:#fff;" />
+            ${helpTextHTML}
+          </div>
+        `;
       } else {
         const attrStr = getAttributesForBehavior(behavior);
-
         return `
           <div class="form-group" style="margin-bottom:18px;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
             <input ${attrStr} id="${fieldId}" name="${field.name || fieldId}" class="form-control" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px;" />
+            ${helpTextHTML}
           </div>
         `;
       }
-    }).join('');
+    };
+
+    let fieldsHTML = '';
+    if (hasSections) {
+      fieldsHTML = formSchema.map((sec, sIdx) => {
+        if (!sec) return '';
+        if (sec.isSection === true || Array.isArray(sec.fields)) {
+          const secFields = Array.isArray(sec.fields) ? sec.fields : [];
+          const secFieldsHTML = secFields.map(field => {
+            const fId = `dyn-field-${fieldIdxCounter++}`;
+            return renderFieldHTML(field, fId);
+          }).join('');
+
+          return `
+            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:18px; padding:22px; margin-bottom:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+              <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #cbd5e1;">
+                <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0 0 4px 0;">${sec.title || `Section ${sIdx + 1}`}</h3>
+                ${sec.description ? `<p style="font-size:13px; color:#64748b; margin:0; line-height:1.4;">${sec.description}</p>` : ''}
+              </div>
+              <div>
+                ${secFieldsHTML || '<p style="font-size:13px; color:#94a3b8; font-style:italic;">No fields in this section.</p>'}
+              </div>
+            </div>
+          `;
+        } else {
+          const fId = `dyn-field-${fieldIdxCounter++}`;
+          return renderFieldHTML(sec, fId);
+        }
+      }).join('');
+    } else {
+      fieldsHTML = formSchema.map(field => {
+        const fId = `dyn-field-${fieldIdxCounter++}`;
+        return renderFieldHTML(field, fId);
+      }).join('');
+    }
 
     app.innerHTML = `
       <div style="min-height:100vh; width:100%; background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; box-sizing:border-box;">
@@ -115,7 +199,7 @@ export async function renderPublicRegistrationPage(eventId) {
     `;
 
     // Attach real-time input filtering listeners for numeric, phone, aadhaar, pincode, and PAN fields
-    formSchema.forEach((field, idx) => {
+    allFlatFields.forEach((field, idx) => {
       const fieldId = `dyn-field-${idx}`;
       const el = document.getElementById(fieldId);
       if (!el) return;
@@ -150,18 +234,27 @@ export async function renderPublicRegistrationPage(eventId) {
 
       const formData = {};
 
-      for (let idx = 0; idx < formSchema.length; idx++) {
-        const field = formSchema[idx];
+      for (let idx = 0; idx < allFlatFields.length; idx++) {
+        const field = allFlatFields[idx];
         const fieldId = `dyn-field-${idx}`;
         let val = '';
 
-        if (field.fieldType === 'radio' || (field.type || '').toLowerCase() === 'radio') {
+        const type = (field.fieldType || field.type || 'short_text').toLowerCase();
+        if (type === 'radio') {
           const checked = document.querySelector(`input[name="${field.name || fieldId}"]:checked`);
           val = checked ? checked.value : '';
+        } else if (type === 'checkbox' || type === 'checkboxes') {
+          if (Array.isArray(field.options) && field.options.length > 1) {
+            const checkedOpts = Array.from(document.querySelectorAll(`input[name="${field.name || fieldId}"]:checked`)).map(c => c.value);
+            val = checkedOpts.join(', ');
+          } else {
+            const el = document.getElementById(fieldId);
+            val = el ? (el.checked ? 'true' : '') : '';
+          }
         } else {
           const el = document.getElementById(fieldId);
           if (el) {
-            val = el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value;
+            val = el.value;
           }
         }
 

@@ -10,10 +10,10 @@ export async function fetchAllForms() {
   return forms;
 }
 
-export async function saveFormSchema(formId, formSchema, title) {
+export async function saveFormSchema(formId, formSchema, title, description = '') {
   const res = await apiFetch(`/api/forms/${formId}`, {
     method: 'PUT',
-    body: JSON.stringify({ formSchema, title })
+    body: JSON.stringify({ formSchema, title, description })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
