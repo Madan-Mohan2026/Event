@@ -64,7 +64,7 @@ export interface IEvent extends Document {
   updatedAt: Date;
 }
 
-const formFieldSchema = new Schema<IFormField>({
+export const formFieldSchema = new Schema<IFormField>({
   name: { type: String, required: true },
   label: { type: String, required: true },
   type: { type: String, required: true },
@@ -113,7 +113,7 @@ const eventSchema = new Schema<IEvent>(
     agendaPdf: { type: String, default: '' },
     status: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft' },
     assignedFormId: { type: String, default: '' },
-    formSchema: { type: [formFieldSchema], default: [] },
+    formSchema: [{ type: Schema.Types.Mixed }],
     agenda: { type: [sessionSchema], default: [] },
     foodCount: { type: Number, default: 0 },
     kitsCount: { type: Number, default: 0 },

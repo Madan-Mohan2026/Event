@@ -18,6 +18,25 @@ const isValidObjectId = (id: any): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
+// Helper to extract fields from section-based or flat schemas
+function flattenFormSchema(schema: any[]): any[] {
+  const flat: any[] = [];
+  if (!Array.isArray(schema)) return flat;
+  for (const item of schema) {
+    if (!item) continue;
+    if (item.isSection === true || Array.isArray(item.fields)) {
+      if (Array.isArray(item.fields)) {
+        for (const f of item.fields) {
+          if (f) flat.push(f);
+        }
+      }
+    } else {
+      flat.push(item);
+    }
+  }
+  return flat;
+}
+
 /**
  * Helper to robustly extract participantName, participantEmail, and participantPhone from formData.
  */
@@ -178,11 +197,13 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    const flatSchema = flattenFormSchema(event.formSchema);
+
     // Validate form schema
     const validationErrors: string[] = [];
     const sanitizedData: Record<string, any> = {};
 
-    for (const field of event.formSchema) {
+    for (const field of flatSchema) {
       const value = formData[field.name] !== undefined && formData[field.name] !== null && formData[field.name] !== '' 
         ? formData[field.name] 
         : (formData[field.label] !== undefined && formData[field.label] !== null && formData[field.label] !== '' ? formData[field.label] : '');
@@ -220,7 +241,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
     }
 
     // Duplicate email registration safeguard
-    const emailField = event.formSchema.find(f => f.type === 'email');
+    const emailField = flatSchema.find(f => (f.type || f.fieldType) === 'email');
     if (emailField) {
       const emailValue = sanitizedData[emailField.name] || sanitizedData[emailField.label];
       if (emailValue) {
@@ -270,7 +291,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
     const regId = await generateStructuredRegistrationId(eventId, event.title);
 
     // Build submittedFields array for dynamic field tracking
-    const submittedFieldsArr = (event.formSchema || []).map((field: any) => {
+    const submittedFieldsArr = flatSchema.map((field: any) => {
       const val = sanitizedData[field.name] !== undefined ? sanitizedData[field.name] : (sanitizedData[field.label] || '');
       return {
         fieldId: field.name || field.id || `field_${Date.now()}`,
@@ -507,8 +528,10 @@ export const exportRegistrationsCSV = async (req: AuthRequest, res: Response): P
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="registrations_${eventId}.csv"`);
 
+    const csvFlatSchema = flattenFormSchema(event.formSchema);
+
     // Build header row
-    const headers = ['Registered At', ...event.formSchema.map(field => field.label)];
+    const headers = ['Registered At', ...csvFlatSchema.map((field: any) => field.label || field.name || 'Field')];
 
     // Function to format CSV cell value
     const escapeCSV = (val: any): string => {
@@ -525,8 +548,8 @@ export const exportRegistrationsCSV = async (req: AuthRequest, res: Response): P
     for (const reg of registrations) {
       const row = [
         reg.registeredAt.toISOString(),
-        ...event.formSchema.map(field => {
-          const rawVal = reg.formData.get(field.name);
+        ...csvFlatSchema.map((field: any) => {
+          const rawVal = reg.formData.get ? reg.formData.get(field.name) || reg.formData.get(field.label) : (reg.formData[field.name] || reg.formData[field.label]);
           return rawVal !== undefined ? rawVal : '';
         })
       ];
