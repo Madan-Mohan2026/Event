@@ -4,10 +4,43 @@ import { Event } from '../models/event.model';
 import { Registration } from '../models/registration.model';
 import { Form } from '../models/Form';
 import { logAdminAction } from '../services/audit.service';
-import { saveBase64ImageToS3, saveBase64PdfToS3 } from '../services/s3Storage.service';
+import { saveBase64ImageToS3, saveBase64PdfToS3, fetchS3BannersList } from '../services/s3Storage.service';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { encryptToken, generateQrDataUrl, getAccessibleHostUrl } from '../utils/qr.utils';
 import { clearDashboardCache } from './dashboard.controller';
+
+function resolveBannerImageProxy(rawBanner?: string, s3Banners: any[] = [], evId?: string): string {
+  const backendBase = (process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : 'http://localhost:5000')).replace(/\/$/, '');
+
+  let trimmed = (rawBanner || '').trim();
+
+  if (!trimmed) {
+    if (evId && s3Banners.length > 0) {
+      const match = s3Banners.find(b => b.eventId === String(evId) || (b.key && b.key.includes(String(evId))));
+      if (match) {
+        return `${backendBase}/api/public/s3-banner/${match.key}`;
+      }
+    }
+    return '';
+  }
+
+  if (trimmed.includes('.s3.') && trimmed.includes('amazonaws.com')) {
+    const keyMatch = trimmed.match(/amazonaws\.com\/(.+)$/);
+    if (keyMatch) {
+      return `${backendBase}/api/public/s3-banner/${keyMatch[1]}`;
+    }
+  }
+
+  if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
+    const filename = trimmed.split('/').pop();
+    const s3Match = s3Banners.find(b => b.filename === filename || (b.key && b.key.includes(filename || '')));
+    if (s3Match) {
+      return `${backendBase}/api/public/s3-banner/${s3Match.key}`;
+    }
+  }
+
+  return trimmed;
+}
 
 // Helper to auto-generate checkin, kit desk, and food desk QR tokens and base64 PNG data URLs if missing or outdated
 export async function ensureEventQrCode(event: any, baseUrl?: string): Promise<boolean> {
@@ -112,7 +145,7 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
 
     const selectProjection = '-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema -agenda';
 
-    const [events, statsAgg] = await Promise.all([
+    const [events, statsAgg, s3Banners] = await Promise.all([
       Event.find(filter)
         .select(selectProjection)
         .sort({ createdAt: -1 })
@@ -127,7 +160,8 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
             scansCount: { $sum: { $cond: ['$attended', 1, 0] } }
           }
         }
-      ])
+      ]),
+      fetchS3BannersList()
     ]);
 
     const statsMap = new Map<string, any>();
@@ -137,8 +171,11 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
 
     const eventsWithStats = events.map((ev: any) => {
       const s = statsMap.get(String(ev._id)) || {};
+      const resolvedBanner = resolveBannerImageProxy(ev.bannerImage, s3Banners, String(ev._id));
       return {
         ...ev,
+        bannerImage: resolvedBanner || ev.bannerImage,
+        bannerImageUrl: resolvedBanner || ev.bannerImageUrl,
         regsCount: s.regsCount || 0,
         foodCount: s.foodCount !== undefined ? s.foodCount : (ev.foodCount || 0),
         kitsCount: s.kitsCount !== undefined ? s.kitsCount : (ev.kitsCount || 0),

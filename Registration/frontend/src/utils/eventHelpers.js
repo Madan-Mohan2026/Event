@@ -55,14 +55,25 @@ export function resolveImageUrl(url) {
   if (!url || typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (!trimmed) return '';
+
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || API_BASE || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : '')).replace(/\/$/, '');
+
+  if (trimmed.includes('.s3.') && trimmed.includes('amazonaws.com')) {
+    const keyMatch = trimmed.match(/amazonaws\.com\/(.+)$/);
+    if (keyMatch) {
+      return `${apiBase}/api/public/s3-banner/${keyMatch[1]}`;
+    }
+  }
+
   if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
+
   if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
     const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    const apiBase = import.meta.env.VITE_API_BASE_URL || API_BASE || '';
-    return `${apiBase.replace(/\/$/, '')}${cleanPath}`;
+    return `${apiBase}${cleanPath}`;
   }
+
   return trimmed;
 }
 
