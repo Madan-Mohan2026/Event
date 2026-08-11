@@ -3,13 +3,12 @@ import { Form } from '../models/Form';
 import { Event } from '../models/event.model';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-// GET /api/forms — List all standalone forms + event forms
+// GET /api/forms — List all standalone forms created by Super Admin (No auto-generated event form duplicates)
 export const getForms = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const standaloneForms = await Form.find().sort({ createdAt: -1 }).lean();
     const allEvents = await Event.find()
-      .select('title description formSchema category date createdAt assignedFormId')
-      .sort({ createdAt: -1 })
+      .select('title assignedFormId')
       .lean();
 
     // Set of form IDs that are assigned to an event
@@ -20,7 +19,7 @@ export const getForms = async (_req: AuthRequest, res: Response): Promise<void> 
       }
     }
 
-    // Map standalone forms
+    // Map standalone forms created strictly by the Super Admin
     const formattedStandalone = standaloneForms.map(f => {
       const formIdStr = String(f._id);
       const isAssigned = assignedFormIdsSet.has(formIdStr) || (f as any).isAssigned === true;
@@ -34,35 +33,7 @@ export const getForms = async (_req: AuthRequest, res: Response): Promise<void> 
       };
     });
 
-    // Map events with forms
-    const eventsWithForms = allEvents.filter(e => e.formSchema && e.formSchema.length > 0);
-    const formattedEvents = eventsWithForms.map(e => ({
-      ...e,
-      isStandalone: false,
-      isAssigned: true,
-      assignedFormId: String(e.assignedFormId || e._id),
-      formSchema: e.formSchema || [],
-      fields: e.formSchema || [],
-      regsCount: 0
-    }));
-
-    // Combine avoiding duplicates
-    const combined = [...formattedStandalone];
-    for (const ef of formattedEvents) {
-      if (!combined.some(c => String(c._id) === String(ef._id))) {
-        combined.push(ef);
-      }
-    }
-
-    // Sort newest created forms first so newly created forms always appear in the first row
-    combined.sort((a, b) => {
-      const timeA = new Date((a as any).createdAt || 0).getTime();
-      const timeB = new Date((b as any).createdAt || 0).getTime();
-      if (timeA !== timeB) return timeB - timeA;
-      return String((b as any)._id || '').localeCompare(String((a as any)._id || ''));
-    });
-
-    res.status(200).json(combined);
+    res.status(200).json(formattedStandalone);
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to fetch forms.' });
   }

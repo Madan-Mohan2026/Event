@@ -174,6 +174,27 @@ export function openCreateEventModal(eventObj = null, onSuccessCallback = null) 
   document.getElementById('create-event-modal-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    // Ensure file inputs are fully read if user selected a file
+    const bannerFileInput = document.getElementById('ev-banner-file');
+    if (bannerFileInput && bannerFileInput.files && bannerFileInput.files[0] && !bannerImageDataUrl.startsWith('data:')) {
+      bannerImageDataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => resolve(evt.target?.result || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(bannerFileInput.files[0]);
+      });
+    }
+
+    const agendaFileInput = document.getElementById('ev-agenda-file');
+    if (agendaFileInput && agendaFileInput.files && agendaFileInput.files[0] && !agendaPdfDataUrl.startsWith('data:')) {
+      agendaPdfDataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => resolve(evt.target?.result || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(agendaFileInput.files[0]);
+      });
+    }
+
     const regStartDateTime = document.getElementById('ev-reg-start-datetime')?.value || '';
     const regEndDateTime = document.getElementById('ev-reg-end-datetime')?.value || '';
 

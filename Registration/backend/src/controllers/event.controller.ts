@@ -457,7 +457,9 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     }
     if (contactNumber !== undefined) event.contactNumber = contactNumber;
     if (supportEmail !== undefined) event.supportEmail = supportEmail;
-    if (bannerImage !== undefined) event.bannerImage = bannerImage ? await saveBase64ImageToS3(bannerImage, 'banner') : '';
+    if (bannerImage !== undefined && bannerImage !== null && bannerImage !== '') {
+      event.bannerImage = await saveBase64ImageToS3(bannerImage, 'banner');
+    }
     if (agendaPdf !== undefined && agendaPdf !== '') event.agendaPdf = await saveBase64PdfToS3(agendaPdf, 'agenda');
     if (status !== undefined) {
       const s = String(status).toLowerCase();

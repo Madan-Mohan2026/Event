@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -261,4 +261,66 @@ export async function migrateLocalFilesToS3(): Promise<{ bannersMigrated: number
 
   console.log(`[s3Storage]: 🚀 Migration completed! ${bannersMigrated} banners & ${agendasMigrated} agendas uploaded to S3, ${eventsUpdated} events updated in MongoDB.`);
   return { bannersMigrated, agendasMigrated, eventsUpdated };
+}
+
+/**
+ * Queries AWS S3 bucket directly to list all uploaded banner objects under "banners/".
+ * Returns an array of objects containing key, public S3 URL, and optional eventId.
+ */
+export async function fetchS3BannersList(): Promise<{ key: string; filename: string; url: string; eventId?: string }[]> {
+  const s3 = getS3Client();
+  if (!s3) return [];
+
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: s3.bucketName,
+      Prefix: 'banners/'
+    });
+
+    const data = await s3.client.send(command);
+    if (!data.Contents || data.Contents.length === 0) return [];
+
+    return data.Contents.map(obj => {
+      const key = obj.Key || '';
+      const filename = key.replace(/^banners\//, '');
+      const url = `https://${s3.bucketName}.s3.${s3.region}.amazonaws.com/${key}`;
+
+      let eventId: string | undefined = undefined;
+      const match = filename.match(/^event_([a-fA-F0-9]{24})_/);
+      if (match) {
+        eventId = match[1];
+      }
+
+      return { key, filename, url, eventId };
+    });
+  } catch (err: any) {
+    console.error('[s3Storage]: Failed to fetch banners list directly from AWS S3:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Fetches an object stream directly from AWS S3 bucket given its Key.
+ */
+export async function getS3ObjectStream(key: string): Promise<{ stream: any; contentType: string; contentLength?: number } | null> {
+  const s3 = getS3Client();
+  if (!s3) return null;
+
+  try {
+    const cleanKey = key.startsWith('banners/') ? key : `banners/${key.replace(/^\//, '')}`;
+    const command = new GetObjectCommand({
+      Bucket: s3.bucketName,
+      Key: cleanKey
+    });
+
+    const data = await s3.client.send(command);
+    return {
+      stream: data.Body,
+      contentType: data.ContentType || 'image/jpeg',
+      contentLength: data.ContentLength
+    };
+  } catch (err: any) {
+    console.error(`[s3Storage]: Failed to fetch object "${key}" directly from AWS S3:`, err.message);
+    return null;
+  }
 }

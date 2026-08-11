@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
+import { fetchS3BannersList, getS3ObjectStream } from '../services/s3Storage.service';
 
 /**
  * Computes public event status ('upcoming' | 'ongoing' | 'completed')
@@ -32,10 +33,31 @@ function computeEventStatus(date: Date, endDate?: Date): 'upcoming' | 'ongoing' 
 }
 
 /**
- * Transforms an internal Mongoose Event document into a sanitized Public EventItem
- * preventing exposure of internal tokens, admin information, or QR secrets.
+ * Returns a high quality category-matched default banner image URL
+ * when an event has no uploaded image.
  */
-function mapToPublicEvent(ev: any, _isList: boolean = true) {
+function getDefaultCategoryBanner(category?: string): string {
+  const cat = (category || '').toUpperCase();
+  if (cat.includes('STARTUP') || cat.includes('MSME') || cat.includes('INNOV')) {
+    return 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('AI') || cat.includes('TECH') || cat.includes('DIGITAL')) {
+    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('GREEN') || cat.includes('ENERGY') || cat.includes('CLEAN')) {
+    return 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('WOMEN') || cat.includes('LEADERSHIP')) {
+    return 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&w=1200&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80';
+}
+
+/**
+ * Transforms an internal Mongoose Event document into a sanitized Public EventItem.
+ * Fetches and resolves banner images directly from AWS S3 bucket.
+ */
+function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = []) {
   const computedStatus = computeEventStatus(ev.date, ev.endDate);
 
   const startDateStr = new Date(ev.date).toLocaleDateString('en-US', {
@@ -104,18 +126,37 @@ function mapToPublicEvent(ev: any, _isList: boolean = true) {
     : [];
 
   let rawBanner = ev.bannerImage || '';
-  let bannerUrl = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+  let bannerUrl = '';
 
-  if (rawBanner && typeof rawBanner === 'string') {
+  if (rawBanner && typeof rawBanner === 'string' && rawBanner.trim()) {
     const trimmed = rawBanner.trim();
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       bannerUrl = trimmed;
     } else if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
-      const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-      const backendBase = process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : 'http://localhost:5000');
-      bannerUrl = backendBase ? `${backendBase.replace(/\/$/, '')}${cleanPath}` : cleanPath;
+      const filename = trimmed.split('/').pop();
+      const s3Match = s3Banners.find(b => b.filename === filename || (b.key && b.key.includes(filename || '')));
+      if (s3Match) {
+        bannerUrl = s3Match.url;
+      } else {
+        const backendBase = process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : 'http://localhost:5000');
+        const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+        bannerUrl = backendBase ? `${backendBase.replace(/\/$/, '')}${cleanPath}` : cleanPath;
+      }
     } else if (trimmed.startsWith('data:image/')) {
       bannerUrl = trimmed;
+    }
+  }
+
+  // Fetch banner image from AWS S3 bucket if bannerUrl is empty
+  if (!bannerUrl) {
+    const idMatch = s3Banners.find(b => b.eventId === String(ev._id) || (b.key && b.key.includes(String(ev._id))));
+    if (idMatch) {
+      bannerUrl = idMatch.url;
+    } else if (s3Banners.length > 0) {
+      const hashIndex = Math.abs(String(ev._id).split('').reduce((acc: number, ch: string) => acc + ch.charCodeAt(0), 0)) % s3Banners.length;
+      bannerUrl = s3Banners[hashIndex].url;
+    } else {
+      bannerUrl = getDefaultCategoryBanner(ev.category);
     }
   }
 
@@ -204,14 +245,18 @@ export const getPublicEvents = async (req: Request, res: Response): Promise<void
     }
 
     console.time('[PUBLIC API] Event.find');
+    console.time('[PUBLIC API] Event.find');
     const events = await Event.find(filter)
       .select('-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema')
       .sort({ createdAt: -1, _id: -1 })
       .lean();
     console.timeEnd('[PUBLIC API] Event.find');
 
+    // Fetch banner objects directly from AWS S3 bucket
+    const s3Banners = await fetchS3BannersList();
+
     console.time('[PUBLIC API] mapping');
-    let mappedEvents = events.map(e => mapToPublicEvent(e, true));
+    let mappedEvents = events.map(e => mapToPublicEvent(e, true, s3Banners));
     console.timeEnd('[PUBLIC API] mapping');
 
     if (status && ['upcoming', 'ongoing', 'completed'].includes(String(status).toLowerCase())) {
@@ -266,10 +311,44 @@ export const getPublicEventById = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const publicEvent = mapToPublicEvent(event, false);
+    // Fetch banner objects directly from AWS S3 bucket
+    const s3Banners = await fetchS3BannersList();
+    const publicEvent = mapToPublicEvent(event, false, s3Banners);
+
     res.status(200).json({ success: true, event: publicEvent });
   } catch (error: any) {
     console.error(`❌ [GET /api/public/events/${req.params.id} ERROR]:`, error);
     res.status(500).json({ success: false, error: 'Failed to retrieve event details.' });
+  }
+};
+
+/**
+ * GET /api/public/s3-banner/*
+ * Direct S3 banner streaming proxy endpoint.
+ * Fetches requested image object directly from AWS S3 bucket and streams to client.
+ */
+export const serveS3Banner = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawKey = req.params[0] || (req.params as any).key || '';
+    if (!rawKey) {
+      res.status(400).send('Banner key is required.');
+      return;
+    }
+
+    const s3Obj = await getS3ObjectStream(rawKey);
+    if (!s3Obj) {
+      res.status(404).send('Banner image not found on AWS S3.');
+      return;
+    }
+
+    res.setHeader('Content-Type', s3Obj.contentType);
+    if (s3Obj.contentLength) {
+      res.setHeader('Content-Length', s3Obj.contentLength);
+    }
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    s3Obj.stream.pipe(res);
+  } catch (err: any) {
+    console.error('❌ [serveS3Banner ERROR]:', err);
+    res.status(500).send('Error streaming banner image from AWS S3.');
   }
 };
