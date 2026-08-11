@@ -56,9 +56,7 @@ export async function renderFormsListView() {
       ? filteredEvents.map(ev => renderFormCard(ev)).join('')
       : `
         <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 18px; border: 1px solid #e2e8f0; color: #64748b;">
-          <p style="font-size:18px; font-weight:700; margin-bottom:8px; color:#0f172a;">No forms found in this view.</p>
-          <p style="font-size:14px; margin-bottom:20px;">Click <strong>+ New Form</strong> in the topbar to create an event with an auto-generated registration form.</p>
-          <button class="btn btn-primary" id="forms-empty-new-btn">+ New Form</button>
+          <p style="font-size:18px; font-weight:700; margin-bottom:0; color:#0f172a;">No forms found in this view.</p>
         </div>
       `;
 
@@ -74,14 +72,11 @@ export async function renderFormsListView() {
           </button>
         </div>
 
-        <!-- Search Bar & Create New Form Action Bar -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; gap:16px; flex-wrap:wrap;">
-          <div class="forms-search-bar-wrapper" style="flex:1; min-width:280px; margin:0;">
+        <!-- Search Bar -->
+        <div style="margin-bottom:24px;">
+          <div class="forms-search-bar-wrapper" style="width:100%; margin:0;">
             <input type="text" id="forms-search-input" class="forms-search-input" placeholder="Search forms..." />
           </div>
-          <button id="btn-create-new-form" class="btn btn-primary" style="background:#4f46e5; color:#ffffff; border:none; padding:12px 22px; border-radius:14px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(79,70,229,0.3); font-size:14px;">
-            + Create New Form
-          </button>
         </div>
 
         <!-- Cards Grid ONLY -->
