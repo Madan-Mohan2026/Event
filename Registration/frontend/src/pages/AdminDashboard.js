@@ -5,9 +5,9 @@ import { openMetricsDetailModal } from './Dashboard.js';
 
 export function renderAdminPortalLayout(activeViewId, viewTitle, contentHTML) {
   const app = document.getElementById('app');
-  const userInitials = state.user?.fullName?.substring(0, 2).toUpperCase() || 'A';
-  const userName = state.user?.fullName || 'Event Admin';
-  const eventTitle = state.currentEvent?.title || 'Assigned Event';
+  const userInitials = state.user?.fullName ? state.user.fullName.substring(0, 2).toUpperCase() : (state.user?.username ? state.user.username.substring(0, 2).toUpperCase() : 'EO');
+  const userRoleDisplay = state.user?.fullName || 'Event Organizer';
+  const eventTitle = state.currentEvent?.title || state.currentEvent?.name || state.user?.assignedEventTitle || state.user?.eventTitle || state.user?.assignedEvent?.title || '';
 
   const nav = (id, icon, label) => `
     <li style="border-radius:10px;overflow:hidden;">
@@ -49,16 +49,16 @@ export function renderAdminPortalLayout(activeViewId, viewTitle, contentHTML) {
         <header style="background:#ffffff;border-bottom:1px solid #e2e8f0;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,0.04);flex-shrink:0;flex-wrap:wrap;gap:6px;">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <button id="ops-mobile-toggle-btn" class="mobile-hamburger-btn" aria-label="Toggle Sidebar">☰</button>
-            ${activeViewId === 'admin-dashboard' || activeViewId === 'dashboard' ? '' : '<button id="header-back-btn" class="header-back-btn" aria-label="Go Back" title="Go Back">←</button>'}
+            ${activeViewId === 'admin-dashboard' || activeViewId === 'dashboard' || activeViewId === 'admin-verify' ? '' : '<button id="header-back-btn" class="header-back-btn" aria-label="Go Back" title="Go Back">←</button>'}
             <h2 style="font-size:16px;font-weight:800;color:#0f172a;letter-spacing:-0.3px;margin:0;">${viewTitle}</h2>
-            <span style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;border:1px solid #c7d2fe;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;">📍 ${eventTitle}</span>
+            ${eventTitle ? `<span style="background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4338ca;border:1px solid #c7d2fe;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;">📍 ${eventTitle}</span>` : ''}
           </div>
 
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;padding:3px 8px 3px 4px;border-radius:30px;border:1px solid #e2e8f0;">
               <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;box-shadow:0 2px 6px rgba(99,102,241,0.3);">${userInitials}</div>
               <div style="line-height:1.2;">
-                <div style="font-size:11.5px;font-weight:700;color:#0f172a;">${userName}</div>
+                <div style="font-size:11.5px;font-weight:700;color:#0f172a;">${userRoleDisplay}</div>
               </div>
             </div>
             <button id="header-export-excel-btn" style="background:#10b981;color:#ffffff;border:none;padding:4px 10px;border-radius:8px;font-weight:700;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(16,185,129,0.25);">📥 Excel</button>
@@ -68,7 +68,7 @@ export function renderAdminPortalLayout(activeViewId, viewTitle, contentHTML) {
           </div>
         </header>
 
-        <div style="flex:1;overflow-y:auto;padding:12px 8px;">
+        <div style="flex:1;overflow-y:auto;padding:12px 8px 60px 8px;">
           ${contentHTML}
         </div>
       </main>

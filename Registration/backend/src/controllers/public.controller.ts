@@ -6,9 +6,21 @@ import { Event } from '../models/event.model';
  * based on event date and endDate compared against current timestamp.
  */
 function computeEventStatus(date: Date, endDate?: Date): 'upcoming' | 'ongoing' | 'completed' {
+  if (!date || isNaN(new Date(date).getTime())) {
+    return 'upcoming';
+  }
   const now = new Date();
   const start = new Date(date);
-  const end = endDate ? new Date(endDate) : new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  start.setHours(0, 0, 0, 0);
+
+  let end: Date;
+  if (endDate && !isNaN(new Date(endDate).getTime())) {
+    end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+  } else {
+    end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+    end.setHours(23, 59, 59, 999);
+  }
 
   if (now < start) {
     return 'upcoming';
@@ -168,7 +180,11 @@ export const getPublicEvents = async (req: Request, res: Response): Promise<void
     };
 
     if (category && String(category).toLowerCase() !== 'all') {
-      filter.category = String(category);
+      const cat = String(category).trim();
+      filter.$or = [
+        { category: { $regex: cat, $options: 'i' } },
+        { participantType: { $regex: cat, $options: 'i' } }
+      ];
     }
 
     const queryTerm = String(searchQuery || search || '').trim();

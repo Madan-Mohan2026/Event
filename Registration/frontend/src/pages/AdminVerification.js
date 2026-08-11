@@ -1,9 +1,37 @@
 import { state } from '../app.js';
 import { apiFetch } from '../services/api.js';
+import { getEvents, getEventById } from '../services/eventService.js';
 import { renderAdminPortalLayout } from './AdminDashboard.js';
 
 export async function renderAdminParticipantVerification() {
   let currentSearchType = 'phone';
+
+  if (!state.currentEvent?.title) {
+    const targetEventId = state.currentEvent?._id || localStorage.getItem('current_event_id') || state.user?.assignedEventId || state.user?.assignedEventIds?.[0];
+    try {
+      if (targetEventId) {
+        const ev = await getEventById(targetEventId);
+        if (ev && (ev.title || ev.name)) {
+          state.currentEvent = { ...state.currentEvent, ...ev, title: ev.title || ev.name };
+        }
+      }
+      if (!state.currentEvent?.title) {
+        const events = await getEvents();
+        if (Array.isArray(events) && events.length > 0) {
+          const matched = events.find(e =>
+            (targetEventId && String(e._id) === String(targetEventId)) ||
+            (state.user?.assignedEventIds && state.user.assignedEventIds.includes(String(e._id))) ||
+            (state.user?.assignedEventId && String(e._id) === String(state.user.assignedEventId))
+          ) || events[0];
+          if (matched) {
+            state.currentEvent = { ...state.currentEvent, ...matched, title: matched.title || matched.name };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed loading assigned event details:', e);
+    }
+  }
 
   renderAdminPortalLayout('admin-verify', 'Participant Verification', `
     <div id="admin-verify-container" style="max-width:680px; width:100%; margin:0 auto; padding: 4px;"></div>
@@ -42,18 +70,9 @@ export async function renderAdminParticipantVerification() {
           </div>
 
           ${errorMessage ? `
-            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:20px; padding:20px; margin-bottom:20px; text-align:center;">
-              <div style="color:#dc2626; font-weight:800; font-size:14px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:16px; padding:16px; margin-bottom:20px; text-align:center;">
+              <div style="color:#dc2626; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:6px;">
                 <span>❌</span> No registration found with this mobile number for this event.
-              </div>
-              
-              <div style="background:#ffffff; border:1px solid #fee2e2; border-radius:16px; padding:18px 16px; text-align:center;">
-                <div style="font-size:13px; font-weight:800; color:#991b1b; margin-bottom:12px;">
-                  Not registered for this event yet?
-                </div>
-                <button type="button" id="admin-proceed-spot-btn" style="width:100%; background:#d97706; color:#ffffff; border:none; padding:13px; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
-                  ⚡ Proceed with Spot Registration
-                </button>
               </div>
             </div>
           ` : ''}
@@ -70,15 +89,6 @@ export async function renderAdminParticipantVerification() {
 
     document.getElementById('tab-search-phone')?.addEventListener('click', () => { currentSearchType = 'phone'; renderSearchFormView(); });
     document.getElementById('tab-search-reg')?.addEventListener('click', () => { currentSearchType = 'regId'; renderSearchFormView(); });
-
-    document.getElementById('admin-proceed-spot-btn')?.addEventListener('click', () => {
-      const activeEvId = localStorage.getItem('current_event_id') || state.currentEvent?._id || '';
-      if (activeEvId) {
-        navigate(`#attendance/${activeEvId}`);
-      } else {
-        navigate('#events');
-      }
-    });
 
     document.getElementById('mobile-verify-search-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -131,7 +141,7 @@ export async function renderAdminParticipantVerification() {
     const foodRedeemedTimeStr = p.foodRedeemedTime ? p.foodRedeemedTime : (p.foodRedeemedAt ? formatDateStr(p.foodRedeemedAt) : '');
 
     container.innerHTML = `
-      <div class="verify-results-wrapper" style="max-width:680px; width:100%; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
+      <div class="verify-results-wrapper" style="max-width:680px; width:100%; margin:0 auto; display:flex; flex-direction:column; gap:16px; padding-bottom:40px;">
         
         <!-- 1. Participant Profile Card -->
         <div class="verify-card" style="background:#ffffff; border-radius:24px; padding:28px 24px; box-shadow:0 4px 20px rgba(0,0,0,0.03); border:1px solid #e2e8f0; text-align:left;">
@@ -244,7 +254,7 @@ export async function renderAdminParticipantVerification() {
         </div>
 
         <!-- 6. Search Another Participant Button -->
-        <button type="button" id="btn-search-again-details" style="width:100%; background:#eef2ff; color:#4338ca; border:1.5px solid #c7d2fe; padding:14px; border-radius:14px; font-size:14px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s;">
+        <button type="button" id="btn-search-again-details" style="width:100%; background:linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); color:#ffffff; border:none; padding:16px; border-radius:16px; font-size:15px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(79,70,229,0.35); margin-top:8px; margin-bottom:48px; transition:all 0.2s;">
           🔍 Search Another Participant
         </button>
 

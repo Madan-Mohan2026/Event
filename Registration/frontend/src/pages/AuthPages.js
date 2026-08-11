@@ -136,13 +136,6 @@ export function renderAdminLoginPage(errorMsg = '', qrToken = null) {
                 Sign in as Admin
               </button>
             </form>
-
-            <div style="text-align:center; margin-top:16px; font-size:13px; color:#64748b;">
-              Looking for Super Admin Login? <a href="#login/super-admin" style="color:#4f46e5; font-weight:700;">Click here</a>
-            </div>
-            <div style="text-align:center; margin-top:8px;">
-              <a href="#home" style="font-size:13px; color:#94a3b8; font-weight:600;">← Back to Home Page</a>
-            </div>
           </div>
         </div>
       </div>
