@@ -60,14 +60,22 @@ export async function saveBase64ImageToS3(base64DataUrl: string, prefix = 'banne
       const filename = `${prefix}_${Date.now()}_${randomHash}.${ext}`;
       const key = `banners/${filename}`;
 
-      const command = new PutObjectCommand({
-        Bucket: s3.bucketName,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType
-      });
-
-      await s3.client.send(command);
+      try {
+        await s3.client.send(new PutObjectCommand({
+          Bucket: s3.bucketName,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+          ACL: 'public-read'
+        }));
+      } catch (aclErr: any) {
+        await s3.client.send(new PutObjectCommand({
+          Bucket: s3.bucketName,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType
+        }));
+      }
 
       const s3Url = `https://${s3.bucketName}.s3.${s3.region}.amazonaws.com/${key}`;
       console.log(`[s3Storage]: ✅ Uploaded banner image (${(buffer.length / 1024).toFixed(1)} KB) to S3 -> ${s3Url}`);
@@ -104,14 +112,22 @@ export async function saveBase64PdfToS3(base64DataUrl: string, prefix = 'agenda'
       const filename = `${prefix}_${Date.now()}_${randomHash}.pdf`;
       const key = `agendas/${filename}`;
 
-      const command = new PutObjectCommand({
-        Bucket: s3.bucketName,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType
-      });
-
-      await s3.client.send(command);
+      try {
+        await s3.client.send(new PutObjectCommand({
+          Bucket: s3.bucketName,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+          ACL: 'public-read'
+        }));
+      } catch (aclErr: any) {
+        await s3.client.send(new PutObjectCommand({
+          Bucket: s3.bucketName,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType
+        }));
+      }
 
       const s3Url = `https://${s3.bucketName}.s3.${s3.region}.amazonaws.com/${key}`;
       console.log(`[s3Storage]: ✅ Uploaded agenda PDF (${(buffer.length / 1024).toFixed(1)} KB) to S3 -> ${s3Url}`);

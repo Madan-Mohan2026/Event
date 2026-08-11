@@ -35,7 +35,7 @@ function computeEventStatus(date: Date, endDate?: Date): 'upcoming' | 'ongoing' 
  * Transforms an internal Mongoose Event document into a sanitized Public EventItem
  * preventing exposure of internal tokens, admin information, or QR secrets.
  */
-function mapToPublicEvent(ev: any, isList: boolean = true) {
+function mapToPublicEvent(ev: any, _isList: boolean = true) {
   const computedStatus = computeEventStatus(ev.date, ev.endDate);
 
   const startDateStr = new Date(ev.date).toLocaleDateString('en-US', {
@@ -107,13 +107,15 @@ function mapToPublicEvent(ev: any, isList: boolean = true) {
   let bannerUrl = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
 
   if (rawBanner && typeof rawBanner === 'string') {
-    if (rawBanner.startsWith('/uploads')) {
-      const backendBase = process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000');
-      bannerUrl = backendBase ? `${backendBase.replace(/\/$/, '')}${rawBanner}` : rawBanner;
-    } else if (rawBanner.startsWith('http://') || rawBanner.startsWith('https://')) {
-      bannerUrl = rawBanner;
-    } else if (rawBanner.startsWith('data:image/')) {
-      bannerUrl = (isList && rawBanner.length > 2000) ? bannerUrl : rawBanner;
+    const trimmed = rawBanner.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      bannerUrl = trimmed;
+    } else if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
+      const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      const backendBase = process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : 'http://localhost:5000');
+      bannerUrl = backendBase ? `${backendBase.replace(/\/$/, '')}${cleanPath}` : cleanPath;
+    } else if (trimmed.startsWith('data:image/')) {
+      bannerUrl = trimmed;
     }
   }
 

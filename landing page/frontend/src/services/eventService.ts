@@ -13,6 +13,24 @@ const rawApiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_
   : defaultProdBackend);
 const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
+export function resolveBannerUrl(url?: string): string {
+  if (!url || typeof url !== 'string') {
+    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+  }
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${API_BASE_URL}${cleanPath}`;
+  }
+  return trimmed;
+}
+
 /**
  * EventService Layer - Integrated with Public Backend APIs
  */
@@ -61,12 +79,11 @@ export class EventService {
       }
 
       const data = await response.json();
-      if (data && Array.isArray(data.events)) {
-        return data.events as EventItem[];
-      } else if (Array.isArray(data)) {
-        return data as EventItem[];
-      }
-      return [];
+      const rawList = data && Array.isArray(data.events) ? data.events : (Array.isArray(data) ? data : []);
+      return rawList.map((ev: any) => ({
+        ...ev,
+        bannerUrl: resolveBannerUrl(ev.bannerUrl)
+      })) as EventItem[];
     } catch (error) {
       console.error('❌ Failed to fetch public events from backend API:', error);
       return [];
@@ -90,12 +107,12 @@ export class EventService {
       }
 
       const data = await response.json();
-      if (data && data.success && data.event) {
-        return data.event as EventItem;
-      } else if (data && data.id) {
-        return data as EventItem;
-      }
-      return null;
+      const ev = data && data.success && data.event ? data.event : (data && data.id ? data : null);
+      if (!ev) return null;
+      return {
+        ...ev,
+        bannerUrl: resolveBannerUrl(ev.bannerUrl)
+      } as EventItem;
     } catch (error) {
       console.error(`❌ Failed to fetch public event details for ${idOrSlug}:`, error);
       return null;
