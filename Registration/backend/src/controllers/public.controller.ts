@@ -125,36 +125,54 @@ function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = [
       }))
     : [];
 
+  // Determine the backend base URL for proxying S3 images
+  const backendBase = (process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : 'http://localhost:5000')).replace(/\/$/, '');
+
+  /**
+   * Converts an S3 banner object into a backend-proxied URL.
+   * Direct S3 URLs return 403 because the bucket has Block Public Access enabled,
+   * so we proxy through /api/public/s3-banner/<key> which streams from S3 via the backend.
+   */
+  function toProxyUrl(s3Banner: { key: string }): string {
+    return `${backendBase}/api/public/s3-banner/${s3Banner.key}`;
+  }
+
   let rawBanner = ev.bannerImage || '';
   let bannerUrl = '';
 
   if (rawBanner && typeof rawBanner === 'string' && rawBanner.trim()) {
     const trimmed = rawBanner.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.startsWith('data:image/')) {
       bannerUrl = trimmed;
     } else if (trimmed.startsWith('/uploads') || trimmed.startsWith('uploads/')) {
+      // Match local upload path to an S3 object and proxy it
       const filename = trimmed.split('/').pop();
       const s3Match = s3Banners.find(b => b.filename === filename || (b.key && b.key.includes(filename || '')));
       if (s3Match) {
-        bannerUrl = s3Match.url;
+        bannerUrl = toProxyUrl(s3Match);
       } else {
-        const backendBase = process.env.PUBLIC_APP_URL || process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://event-hjoa.onrender.com' : 'http://localhost:5000');
+        // Fallback: serve from backend static uploads directory
         const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-        bannerUrl = backendBase ? `${backendBase.replace(/\/$/, '')}${cleanPath}` : cleanPath;
+        bannerUrl = `${backendBase}${cleanPath}`;
       }
-    } else if (trimmed.startsWith('data:image/')) {
+    } else if (trimmed.includes('.s3.') && trimmed.includes('amazonaws.com')) {
+      // Already an S3 URL — extract the key and proxy it
+      const keyMatch = trimmed.match(/amazonaws\.com\/(.+)$/);
+      if (keyMatch) {
+        bannerUrl = `${backendBase}/api/public/s3-banner/${keyMatch[1]}`;
+      } else {
+        bannerUrl = trimmed;
+      }
+    } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       bannerUrl = trimmed;
     }
   }
 
-  // Fetch banner image from AWS S3 bucket if bannerUrl is empty
+  // If bannerUrl is still empty, find a matching S3 banner and proxy it
   if (!bannerUrl) {
     const idMatch = s3Banners.find(b => b.eventId === String(ev._id) || (b.key && b.key.includes(String(ev._id))));
     if (idMatch) {
-      bannerUrl = idMatch.url;
-    } else if (s3Banners.length > 0) {
-      const hashIndex = Math.abs(String(ev._id).split('').reduce((acc: number, ch: string) => acc + ch.charCodeAt(0), 0)) % s3Banners.length;
-      bannerUrl = s3Banners[hashIndex].url;
+      bannerUrl = toProxyUrl(idMatch);
     } else {
       bannerUrl = getDefaultCategoryBanner(ev.category);
     }
@@ -244,7 +262,6 @@ export const getPublicEvents = async (req: Request, res: Response): Promise<void
       ];
     }
 
-    console.time('[PUBLIC API] Event.find');
     console.time('[PUBLIC API] Event.find');
     const events = await Event.find(filter)
       .select('-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema')
