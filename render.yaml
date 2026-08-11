@@ -1,0 +1,9 @@
+services:
+  - type: static
+    name: event-landing
+    buildCommand: cd "landing page/frontend" && npm install && npm run build
+    staticPublishPath: "./landing page/frontend/dist"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
