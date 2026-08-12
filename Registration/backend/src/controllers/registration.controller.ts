@@ -123,8 +123,8 @@ export function extractParticipantDetailsFromFormData(formData: Record<string, a
  * Helper to generate structured Registration ID: REG-{CLEAN_CODE}-{4_DIGIT_ID}
  * First digit of 4-digit number = Event Order (1, 2, 3...)
  * Last digits = Registration sequence for that event starting from 1
- * e.g., Event #2 (spark), Participant 1 => REG-SPARK-2001
- * e.g., Event #2 (spark), Participant 2 => REG-SPARK-2002
+ * e.g., Event #2 (quantum), Participant 1 => REG-QUAN-2001
+ * e.g., Event #2 (quantum), Participant 2 => REG-QUAN-2002
  */
 export async function generateStructuredRegistrationId(eventId: string, eventTitle?: string): Promise<string> {
   const allEventsSorted = await Event.find({}).sort({ createdAt: 1 }).select('_id');
@@ -135,10 +135,10 @@ export async function generateStructuredRegistrationId(eventId: string, eventTit
   const participantNum = countForEvent + 1;
   const numericId = (eventOrder * 1000) + participantNum;
 
-  const cleanCode = String(eventTitle || 'EVENT')
+  const cleanCode = String(eventTitle || 'EVT')
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
-    .substring(0, 8) || 'EVENT';
+    .substring(0, 4) || 'EVT';
 
   let regId = `REG-${cleanCode}-${numericId}`;
   let counter = numericId;
