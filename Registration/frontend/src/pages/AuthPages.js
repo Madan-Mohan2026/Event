@@ -8,7 +8,7 @@ export function renderSuperAdminLoginPage(errorMsg = '') {
     <div class="auth-container">
       <div class="auth-left">
         <div class="auth-left-logo-box">🏛️</div>
-        <h1>Smart Event <br><span class="gradient-text">Registration System</span></h1>
+        <h1>RTIH Event <br><span class="gradient-text">Management System</span></h1>
         <p class="auth-left-desc">Super Admin Portal for managing events, forms, registrations, and desk controllers.</p>
       </div>
       <div class="auth-right">

@@ -21,4 +21,4 @@ export const EVENT_STATUSES = {
   ARCHIVED: 'archived'
 };
 
-export const DEFAULT_HEADER_TITLE = 'Smart Event Registration System';
+export const DEFAULT_HEADER_TITLE = 'RTIH Event Management System';
