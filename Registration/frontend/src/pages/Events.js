@@ -504,14 +504,44 @@ export async function renderEventCheckinQrModal(eventId) {
       }
     });
 
-    document.getElementById('btn-download-qr-action')?.addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.href = qrImgSrc;
-      link.download = `${eventTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${currentTab}-qr.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    document.getElementById('btn-download-qr-action')?.addEventListener('click', async function() {
+      const btn = this;
+      const origHtml = btn.innerHTML;
+
+      // Cross-origin <a download> is silently blocked by browsers.
+      // Solution: fetch the image as a Blob first, then download via a local object URL.
+      try {
+        btn.innerHTML = '⏳ Downloading...';
+        btn.disabled = true;
+
+        const response = await fetch(qrImgSrc);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = `${eventTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${currentTab}-qr.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Revoke after a short delay to allow the download to start
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+
+        btn.innerHTML = '✅ Downloaded!';
+        setTimeout(() => {
+          btn.innerHTML = origHtml;
+          btn.disabled = false;
+        }, 2000);
+      } catch (err) {
+        console.error('QR download failed:', err);
+        btn.innerHTML = '❌ Failed — try again';
+        btn.disabled = false;
+        setTimeout(() => { btn.innerHTML = origHtml; }, 2500);
+      }
     });
+
 
     document.getElementById('btn-print-pass-action')?.addEventListener('click', () => {
       const printWin = window.open('', '_blank');
