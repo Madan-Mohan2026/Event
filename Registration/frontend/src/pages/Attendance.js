@@ -334,7 +334,7 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
 
     const rawFlat = extractFlatFields(pageState.formSchema);
 
-    const formSchema = rawFlat.length > 0
+    const allFlatFields = rawFlat.length > 0
       ? rawFlat
       : [
           { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
@@ -342,19 +342,25 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
           { name: 'participantPhone', label: 'Phone Number', fieldType: 'phone', type: 'text', required: true, placeholder: 'Enter 10-digit mobile number' }
         ];
 
-    const fieldsHTML = formSchema.map((field, idx) => {
-      const fieldLabel = field.label || field.name || `Field ${idx + 1}`;
-      const fieldName = field.name || field.label || `field_${idx}`;
+    const hasSections = Array.isArray(pageState.formSchema) && pageState.formSchema.some(item => item && (item.isSection === true || Array.isArray(item.fields)));
+
+    let fieldIdxCounter = 0;
+
+    const renderFieldHTML = (field, fieldId) => {
+      const fieldLabel = field.label || field.name || `Field ${fieldIdxCounter + 1}`;
+      const fieldName = field.name || field.label || fieldId;
       const type = (field.fieldType || field.type || 'short_text').toLowerCase();
+      const behavior = getFieldBehavior(field);
       const isReq = field.required === true;
       const reqMark = isReq ? '<span style="color:#ef4444;">*</span>' : '';
-      const fieldId = `spot-field-${idx}`;
+      const helpTextHTML = field.helpText ? `<p style="font-size:11.5px; color:#64748b; margin:4px 0 0 0;">${field.helpText}</p>` : '';
 
       if (type === 'long_text' || type === 'textarea' || type === 'paragraph') {
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${fieldLabel} ${reqMark}</label>
-            <textarea id="${fieldId}" name="${fieldName}" class="form-control" rows="3" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;"></textarea>
+            <textarea id="${fieldId}" name="${fieldName}" class="form-control" rows="3" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px;"></textarea>
+            ${helpTextHTML}
           </div>
         `;
       } else if (type === 'dropdown' || type === 'select') {
@@ -362,14 +368,54 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${fieldLabel} ${reqMark}</label>
-            <select id="${fieldId}" name="${fieldName}" class="form-control" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px; background:#fff;">
+            <select id="${fieldId}" name="${fieldName}" class="form-control" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px; background:#fff;">
               <option value="">-- Select ${fieldLabel} --</option>
               ${optionsHTML}
             </select>
+            ${helpTextHTML}
+          </div>
+        `;
+      } else if (type === 'radio') {
+        const optionsHTML = (field.options || ['Option 1', 'Option 2']).map((opt, oIdx) => `
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#334155; cursor:pointer;">
+            <input type="radio" name="${fieldName}" value="${opt}" ${isReq && oIdx === 0 ? 'required' : ''} style="accent-color:#4f46e5;" />
+            <span>${opt}</span>
+          </label>
+        `).join('');
+        return `
+          <div class="form-group" style="margin-bottom:18px; text-align:left;">
+            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:8px; display:block;">${fieldLabel} ${reqMark}</label>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              ${optionsHTML}
+            </div>
+            ${helpTextHTML}
+          </div>
+        `;
+      } else if (type === 'checkbox' || type === 'checkboxes') {
+        if (Array.isArray(field.options) && field.options.length > 1) {
+          const optionsHTML = field.options.map(opt => `
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#334155; cursor:pointer;">
+              <input type="checkbox" name="${fieldName}" value="${opt}" style="width:16px; height:16px; accent-color:#4f46e5;" />
+              <span>${opt}</span>
+            </label>
+          `).join('');
+          return `
+            <div class="form-group" style="margin-bottom:18px; text-align:left;">
+              <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:8px; display:block;">${fieldLabel} ${reqMark}</label>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${optionsHTML}
+              </div>
+              ${helpTextHTML}
+            </div>
+          `;
+        }
+        return `
+          <div class="form-group" style="margin-bottom:18px; text-align:left; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="${fieldId}" name="${fieldName}" style="width:18px; height:18px; accent-color:#4f46e5; cursor:pointer;" ${isReq ? 'required' : ''} />
+            <label for="${fieldId}" style="font-weight:600; color:#334155; font-size:13px; cursor:pointer;">${fieldLabel} ${reqMark}</label>
           </div>
         `;
       } else {
-        const behavior = getFieldBehavior(field);
         const attrStr = getAttributesForBehavior(behavior);
 
         let defaultVal = '';
@@ -381,15 +427,50 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
             <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${fieldLabel} ${reqMark}</label>
-            <input ${attrStr} id="${fieldId}" name="${fieldName}" class="form-control" value="${defaultVal}" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;" />
+            <input ${attrStr} id="${fieldId}" name="${fieldName}" class="form-control" value="${defaultVal}" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:10px; border:1px solid #cbd5e1; padding:10px 14px; font-size:14px;" />
+            ${helpTextHTML}
           </div>
         `;
       }
-    }).join('');
+    };
+
+    let fieldsHTML = '';
+    if (hasSections) {
+      fieldsHTML = pageState.formSchema.map((sec, sIdx) => {
+        if (!sec) return '';
+        if (sec.isSection === true || Array.isArray(sec.fields)) {
+          const secFields = Array.isArray(sec.fields) ? sec.fields : [];
+          const secFieldsHTML = secFields.map(field => {
+            const fId = `spot-field-${fieldIdxCounter++}`;
+            return renderFieldHTML(field, fId);
+          }).join('');
+
+          return `
+            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:18px; padding:22px; margin-bottom:24px; text-align:left; box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+              <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #cbd5e1;">
+                <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0 0 4px 0;">${sec.title || `Section ${sIdx + 1}`}</h3>
+                ${sec.description ? `<p style="font-size:13px; color:#64748b; margin:0; line-height:1.4;">${sec.description}</p>` : ''}
+              </div>
+              <div>
+                ${secFieldsHTML || '<p style="font-size:13px; color:#94a3b8; font-style:italic;">No fields in this section.</p>'}
+              </div>
+            </div>
+          `;
+        } else {
+          const fId = `spot-field-${fieldIdxCounter++}`;
+          return renderFieldHTML(sec, fId);
+        }
+      }).join('');
+    } else {
+      fieldsHTML = allFlatFields.map(field => {
+        const fId = `spot-field-${fieldIdxCounter++}`;
+        return renderFieldHTML(field, fId);
+      }).join('');
+    }
 
     app.innerHTML = `
       <div style="min-height:100vh; background:#251b60; display:flex; align-items:center; justify-content:center; padding:32px 16px;">
-        <div style="background:#ffffff; border-radius:24px; max-width:520px; width:100%; padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:none; text-align:center;">
+        <div style="background:#ffffff; border-radius:24px; max-width:540px; width:100%; padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:none; text-align:center;">
           
           <button id="back-to-verify-btn" type="button" style="background:none; border:none; color:#64748b; font-size:13px; font-weight:700; cursor:pointer; margin-bottom:16px; display:inline-flex; align-items:center; gap:4px; padding:0;">
             ← Back to Verification
@@ -420,7 +501,7 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       renderVerificationScreen();
     });
 
-    formSchema.forEach((field, idx) => {
+    allFlatFields.forEach((field, idx) => {
       const fieldId = `spot-field-${idx}`;
       const el = document.getElementById(fieldId);
       if (!el) return;
@@ -457,15 +538,34 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       spotAlert.innerHTML = '';
 
       const formData = {};
-      for (let idx = 0; idx < formSchema.length; idx++) {
-        const field = formSchema[idx];
+      for (let idx = 0; idx < allFlatFields.length; idx++) {
+        const field = allFlatFields[idx];
         const fieldId = `spot-field-${idx}`;
-        const el = document.getElementById(fieldId);
-        const val = el ? (el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value) : '';
+        const fieldName = field.name || field.label || fieldId;
+        const fieldLabel = field.label || field.name || `Field ${idx + 1}`;
+        let val = '';
+
+        const type = (field.fieldType || field.type || 'short_text').toLowerCase();
+        if (type === 'radio') {
+          const checked = document.querySelector(`input[name="${fieldName}"]:checked`);
+          val = checked ? checked.value : '';
+        } else if (type === 'checkbox' || type === 'checkboxes') {
+          if (Array.isArray(field.options) && field.options.length > 1) {
+            const checkedOpts = Array.from(document.querySelectorAll(`input[name="${fieldName}"]:checked`)).map(c => c.value);
+            val = checkedOpts.join(', ');
+          } else {
+            const el = document.getElementById(fieldId);
+            val = el && el.checked ? 'true' : '';
+          }
+        } else {
+          const el = document.getElementById(fieldId);
+          val = el ? el.value.trim() : '';
+        }
 
         const validationErr = validateFieldValue(field, val);
         if (validationErr) {
           spotAlert.innerHTML = `<div class="alert alert-danger" style="margin-bottom:16px;">⚠️ ${validationErr}</div>`;
+          const el = document.getElementById(fieldId);
           if (el && typeof el.focus === 'function') el.focus();
           if (submitBtn) {
             submitBtn.disabled = false;
@@ -474,8 +574,6 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
           return;
         }
 
-        const fieldName = field.name || field.label || `field_${idx}`;
-        const fieldLabel = field.label || field.name || `Field ${idx + 1}`;
         formData[fieldName] = val;
         formData[fieldLabel] = val;
       }
