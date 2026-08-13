@@ -340,6 +340,41 @@ export const getPublicEventById = async (req: Request, res: Response): Promise<v
 };
 
 /**
+ * GET /api/public/s3-agenda/*
+ * Proxy an agenda PDF from the private S3 bucket to the client.
+ * Forces a file download (Content-Disposition: attachment) so the browser
+ * saves the PDF instead of navigating to the raw S3 URL (which returns 403).
+ */
+export const serveS3Agenda = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawKey = req.params[0] || (req.params as any).key || '';
+    if (!rawKey) {
+      res.status(400).send('Agenda key is required.');
+      return;
+    }
+
+    const s3Obj = await getS3ObjectStream(rawKey);
+    if (!s3Obj) {
+      res.status(404).send('Agenda PDF not found on AWS S3.');
+      return;
+    }
+
+    // Force download — do not expose raw S3 URL to the browser
+    const filename = rawKey.split('/').pop() || 'Event_Agenda.pdf';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    if (s3Obj.contentLength) {
+      res.setHeader('Content-Length', s3Obj.contentLength);
+    }
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    s3Obj.stream.pipe(res);
+  } catch (err: any) {
+    console.error('❌ [serveS3Agenda ERROR]:', err);
+    res.status(500).send('Error streaming agenda PDF from AWS S3.');
+  }
+};
+
+/**
  * GET /api/public/s3-banner/*
  * Direct S3 banner streaming proxy endpoint.
  * Fetches requested image object directly from AWS S3 bucket and streams to client.
@@ -369,3 +404,4 @@ export const serveS3Banner = async (req: Request, res: Response): Promise<void> 
     res.status(500).send('Error streaming banner image from AWS S3.');
   }
 };
+

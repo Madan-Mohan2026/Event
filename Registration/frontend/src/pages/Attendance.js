@@ -145,7 +145,29 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
 
   // Case 1 — Success Screen (Attendance & Kit)
   function renderAttendanceSuccessScreen(participant) {
-    const agendaUrl = pageState.agendaPdf ? (pageState.agendaPdf.startsWith('http') ? pageState.agendaPdf : `${API_BASE}${pageState.agendaPdf}`) : '';
+    // Build the agenda download URL.
+    // S3 URLs cannot be accessed directly (bucket is private → AccessDenied).
+    // Proxy them through the backend /api/public/s3-agenda/<key> endpoint.
+    let agendaUrl = '';
+    if (pageState.agendaPdf) {
+      const pdf = pageState.agendaPdf.trim();
+      if (pdf.includes('.s3.') && pdf.includes('amazonaws.com')) {
+        // Extract S3 key from URL: everything after amazonaws.com/
+        const keyMatch = pdf.match(/amazonaws\.com\/(.+)$/);
+        if (keyMatch) {
+          agendaUrl = `${API_BASE}/api/public/s3-agenda/${keyMatch[1]}`;
+        } else {
+          agendaUrl = `${API_BASE}/api/public/s3-agenda/${pdf.split('/').slice(-2).join('/')}`;
+        }
+      } else if (pdf.startsWith('http://') || pdf.startsWith('https://')) {
+        // Non-S3 public URL — use directly
+        agendaUrl = pdf;
+      } else {
+        // Relative/local path — prepend backend base
+        agendaUrl = `${API_BASE}${pdf.startsWith('/') ? pdf : '/' + pdf}`;
+      }
+    }
+
 
     app.innerHTML = `
       <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#251b60;">
