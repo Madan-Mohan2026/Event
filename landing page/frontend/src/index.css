@@ -77,3 +77,116 @@
   border-color: #7E22CE;
   box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.15);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Collaboration "In Collaboration With" — Single-Logo Scroll
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Section wrapper */
+.collaboration-section {
+  background-color: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.75rem 0;
+  overflow: hidden;       /* no horizontal overflow on page */
+  width: 100%;
+}
+
+/* "IN COLLABORATION WITH" heading */
+.collaboration-heading {
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin: 0 0 1.25rem 0;
+  padding: 0 1rem;
+}
+
+/* Marquee outer wrapper — hides overflow, no scrollbar */
+.collaboration-marquee-wrap {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+  height: 4.5rem;         /* fixed height to contain the logo */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.collaboration-marquee-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Single-logo track.
+ * Logo starts from the far right (110vw) and exits to the left (-200px).
+ * Only ONE logo is ever visible at any point in time.
+ * Infinite loop — after exit left it resets to the right start instantly.
+ */
+.collaboration-single-track {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: collab-single-scroll 10s linear infinite;
+  will-change: transform;
+  display: flex;
+  align-items: center;
+}
+
+/* Pause on hover */
+.collaboration-single-track:hover {
+  animation-play-state: paused;
+}
+
+/* Logo image sizing */
+.collaboration-logo-img {
+  height: 3.25rem;       /* ~52px — desktop */
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  object-position: center;
+  opacity: 0.92;
+  user-select: none;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.collaboration-single-track:hover .collaboration-logo-img {
+  opacity: 1;
+}
+
+/* ── Keyframe: enter from right, exit to left ── */
+@keyframes collab-single-scroll {
+  0% {
+    left: 110vw;
+  }
+  100% {
+    left: -220px;
+  }
+}
+
+/* ── Responsive ── */
+
+/* Mobile */
+@media (max-width: 640px) {
+  .collaboration-marquee-wrap {
+    height: 3.5rem;
+  }
+  .collaboration-logo-img {
+    height: 2.5rem;
+    max-width: 150px;
+  }
+  .collaboration-heading {
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    margin-bottom: 1rem;
+  }
+  @keyframes collab-single-scroll {
+    0% {
+      left: 110vw;
+    }
+    100% {
+      left: -160px;
+    }
+  }
+}
