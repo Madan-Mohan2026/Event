@@ -1207,16 +1207,22 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
     // Validate required fields from event formSchema
     const validationErrors: string[] = [];
     const sanitizedData: Record<string, any> = {};
+    const flatSchema = flattenFormSchema(event.formSchema);
 
-    for (const field of event.formSchema) {
-      const value = formData[field.name];
+    for (const field of flatSchema) {
+      if (!field) continue;
+      const fieldName = field.name || field.label;
+      const fieldLabel = field.label || field.name || 'Field';
+      if (!fieldName) continue;
+
+      const value = formData[fieldName] !== undefined ? formData[fieldName] : formData[fieldLabel];
 
       if (field.required && (value === undefined || value === null || value === '')) {
-        validationErrors.push(`Field "${field.label}" is required.`);
+        validationErrors.push(`Field "${fieldLabel}" is required.`);
         continue;
       }
       if (value !== undefined) {
-        sanitizedData[field.name] = value;
+        sanitizedData[fieldName] = value;
       }
     }
 

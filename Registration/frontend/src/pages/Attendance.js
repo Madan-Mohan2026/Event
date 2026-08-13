@@ -131,7 +131,7 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
             verifyBtn.innerHTML = buttonText;
 
             document.getElementById('proceed-spot-btn')?.addEventListener('click', () => {
-              renderSpotRegistrationForm();
+              renderSpotRegistrationForm(mobile);
             });
           }
         }
@@ -315,8 +315,27 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
 
   // Spot Registration Form (Using existing Form Builder schema assigned to the event)
   function renderSpotRegistrationForm(initialMobile = '') {
-    const formSchema = pageState.formSchema.length > 0
-      ? pageState.formSchema
+    // Helper to flatten fields from sections or flat array
+    const extractFlatFields = (schema) => {
+      const flat = [];
+      if (!Array.isArray(schema)) return flat;
+      schema.forEach(item => {
+        if (!item) return;
+        if (item.isSection === true || Array.isArray(item.fields)) {
+          if (Array.isArray(item.fields)) {
+            item.fields.forEach(f => { if (f) flat.push(f); });
+          }
+        } else {
+          flat.push(item);
+        }
+      });
+      return flat;
+    };
+
+    const rawFlat = extractFlatFields(pageState.formSchema);
+
+    const formSchema = rawFlat.length > 0
+      ? rawFlat
       : [
           { name: 'participantName', label: 'Full Name', fieldType: 'short_text', type: 'text', required: true, placeholder: 'Enter your full name' },
           { name: 'participantEmail', label: 'Email Address', fieldType: 'email', type: 'email', required: true, placeholder: 'name@example.com' },
@@ -324,6 +343,8 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         ];
 
     const fieldsHTML = formSchema.map((field, idx) => {
+      const fieldLabel = field.label || field.name || `Field ${idx + 1}`;
+      const fieldName = field.name || field.label || `field_${idx}`;
       const type = (field.fieldType || field.type || 'short_text').toLowerCase();
       const isReq = field.required === true;
       const reqMark = isReq ? '<span style="color:#ef4444;">*</span>' : '';
@@ -332,17 +353,17 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       if (type === 'long_text' || type === 'textarea' || type === 'paragraph') {
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
-            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
-            <textarea id="${fieldId}" name="${field.name || fieldId}" class="form-control" rows="3" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;"></textarea>
+            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${fieldLabel} ${reqMark}</label>
+            <textarea id="${fieldId}" name="${fieldName}" class="form-control" rows="3" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;"></textarea>
           </div>
         `;
       } else if (type === 'dropdown' || type === 'select') {
         const optionsHTML = (field.options || ['Option 1', 'Option 2']).map(opt => `<option value="${opt}">${opt}</option>`).join('');
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
-            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
-            <select id="${fieldId}" name="${field.name || fieldId}" class="form-control" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px; background:#fff;">
-              <option value="">-- Select ${field.label} --</option>
+            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${fieldLabel} ${reqMark}</label>
+            <select id="${fieldId}" name="${fieldName}" class="form-control" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px; background:#fff;">
+              <option value="">-- Select ${fieldLabel} --</option>
               ${optionsHTML}
             </select>
           </div>
@@ -352,27 +373,31 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         const attrStr = getAttributesForBehavior(behavior);
 
         let defaultVal = '';
-        const isPhoneField = behavior === 'phone';
+        const isPhoneField = behavior === 'phone' || fieldLabel.toLowerCase().includes('phone') || fieldLabel.toLowerCase().includes('mobile');
         if (isPhoneField && initialMobile) {
           defaultVal = initialMobile;
         }
 
         return `
           <div class="form-group" style="margin-bottom:18px; text-align:left;">
-            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${field.label} ${reqMark}</label>
-            <input ${attrStr} id="${fieldId}" name="${field.name || fieldId}" class="form-control" value="${defaultVal}" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;" />
+            <label class="form-label" style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px; display:block;">${fieldLabel} ${reqMark}</label>
+            <input ${attrStr} id="${fieldId}" name="${fieldName}" class="form-control" value="${defaultVal}" placeholder="${field.placeholder || ''}" ${isReq ? 'required' : ''} style="width:100%; border-radius:12px; border:1px solid #cbd5e1; padding:12px 14px; font-size:14px;" />
           </div>
         `;
       }
     }).join('');
 
     app.innerHTML = `
-      <div style="min-height:100vh; background:#f8fafc; display:flex; align-items:center; justify-content:center; padding:32px 16px;">
-        <div style="background:#ffffff; border-radius:24px; max-width:520px; width:100%; padding:36px 32px; box-shadow:0 10px 30px rgba(0,0,0,0.06); border:1px solid #e2e8f0;">
+      <div style="min-height:100vh; background:#251b60; display:flex; align-items:center; justify-content:center; padding:32px 16px;">
+        <div style="background:#ffffff; border-radius:24px; max-width:520px; width:100%; padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:none; text-align:center;">
           
+          <button id="back-to-verify-btn" type="button" style="background:none; border:none; color:#64748b; font-size:13px; font-weight:700; cursor:pointer; margin-bottom:16px; display:inline-flex; align-items:center; gap:4px; padding:0;">
+            ← Back to Verification
+          </button>
+
           <div style="text-align:center; margin-bottom:24px;">
             <span style="display:inline-block; padding:4px 14px; background:#eef2ff; color:#4f46e5; font-size:12px; font-weight:800; border-radius:20px; margin-bottom:8px; border:1px solid #c7d2fe;">
-              ✨ SPOT REGISTRATION
+              ⚡ SPOT REGISTRATION
             </span>
             <h1 style="font-size:22px; font-weight:900; color:#0f172a; margin:4px 0 6px 0;">${pageState.eventTitle}</h1>
             <p style="font-size:13px; color:#64748b; margin:0;">Complete spot registration to mark attendance</p>
@@ -390,6 +415,10 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         </div>
       </div>
     `;
+
+    document.getElementById('back-to-verify-btn')?.addEventListener('click', () => {
+      renderVerificationScreen();
+    });
 
     formSchema.forEach((field, idx) => {
       const fieldId = `spot-field-${idx}`;
@@ -445,8 +474,10 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
           return;
         }
 
-        if (field.name) formData[field.name] = val;
-        if (field.label) formData[field.label] = val;
+        const fieldName = field.name || field.label || `field_${idx}`;
+        const fieldLabel = field.label || field.name || `Field ${idx + 1}`;
+        formData[fieldName] = val;
+        formData[fieldLabel] = val;
       }
 
       try {
