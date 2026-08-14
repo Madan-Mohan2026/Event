@@ -307,16 +307,27 @@ export async function getS3ObjectStream(key: string): Promise<{ stream: any; con
   if (!s3) return null;
 
   try {
-    const cleanKey = key.startsWith('banners/') ? key : `banners/${key.replace(/^\//, '')}`;
+    let cleanKey = key.replace(/^\//, '');
+    if (!cleanKey.startsWith('banners/') && !cleanKey.startsWith('agendas/')) {
+      if (cleanKey.endsWith('.pdf') || cleanKey.includes('agenda')) {
+        cleanKey = `agendas/${cleanKey}`;
+      } else {
+        cleanKey = `banners/${cleanKey}`;
+      }
+    }
+
     const command = new GetObjectCommand({
       Bucket: s3.bucketName,
       Key: cleanKey
     });
 
     const data = await s3.client.send(command);
+    const isPdf = cleanKey.endsWith('.pdf') || cleanKey.startsWith('agendas/');
+    const defaultContentType = isPdf ? 'application/pdf' : 'image/jpeg';
+
     return {
       stream: data.Body,
-      contentType: data.ContentType || 'image/jpeg',
+      contentType: data.ContentType || defaultContentType,
       contentLength: data.ContentLength
     };
   } catch (err: any) {

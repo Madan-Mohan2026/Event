@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { fetchS3BannersList, getS3ObjectStream } from '../services/s3Storage.service';
@@ -354,15 +356,35 @@ export const serveS3Agenda = async (req: Request, res: Response): Promise<void> 
     }
 
     const s3Obj = await getS3ObjectStream(rawKey);
+
     if (!s3Obj) {
-      res.status(404).send('Agenda PDF not found on AWS S3.');
+      // Fallback: Check local disk storage if AWS S3 stream is unconfigured or failed
+      const filename = rawKey.split('/').pop() || '';
+      const localCandidatePaths = [
+        path.resolve(process.cwd(), 'uploads/agendas', filename),
+        path.resolve(process.cwd(), 'uploads', filename),
+        path.resolve(process.cwd(), rawKey)
+      ];
+
+      for (const filePath of localCandidatePaths) {
+        if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
+          const stat = fs.statSync(filePath);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${filename || 'Event_Agenda.pdf'}"`);
+          res.setHeader('Content-Length', stat.size);
+          res.setHeader('Cache-Control', 'private, max-age=3600');
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        }
+      }
+
+      res.status(404).send('Agenda PDF not found.');
       return;
     }
 
-    // Force download — do not expose raw S3 URL to the browser
     const filename = rawKey.split('/').pop() || 'Event_Agenda.pdf';
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     if (s3Obj.contentLength) {
       res.setHeader('Content-Length', s3Obj.contentLength);
     }
@@ -370,7 +392,7 @@ export const serveS3Agenda = async (req: Request, res: Response): Promise<void> 
     s3Obj.stream.pipe(res);
   } catch (err: any) {
     console.error('❌ [serveS3Agenda ERROR]:', err);
-    res.status(500).send('Error streaming agenda PDF from AWS S3.');
+    res.status(500).send('Error streaming agenda PDF.');
   }
 };
 

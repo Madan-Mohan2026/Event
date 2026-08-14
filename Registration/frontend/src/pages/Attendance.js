@@ -159,12 +159,19 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
         } else {
           agendaUrl = `${API_BASE}/api/public/s3-agenda/${pdf.split('/').slice(-2).join('/')}`;
         }
+      } else if (pdf.startsWith('data:')) {
+        agendaUrl = pdf;
       } else if (pdf.startsWith('http://') || pdf.startsWith('https://')) {
         // Non-S3 public URL — use directly
         agendaUrl = pdf;
       } else {
-        // Relative/local path — prepend backend base
-        agendaUrl = `${API_BASE}${pdf.startsWith('/') ? pdf : '/' + pdf}`;
+        // Relative/local path — if it points to agendas or uploads, route through s3-agenda endpoint
+        if (pdf.includes('agendas/') || pdf.includes('uploads/')) {
+          const filename = pdf.split('/').pop();
+          agendaUrl = `${API_BASE}/api/public/s3-agenda/agendas/${filename}`;
+        } else {
+          agendaUrl = `${API_BASE}${pdf.startsWith('/') ? pdf : '/' + pdf}`;
+        }
       }
     }
 
