@@ -45,7 +45,8 @@ export async function renderManualAttendance() {
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
             <span style="font-size: 18px; background: #e0e7ff; color: #4338ca; width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">📋</span>
             <div>
-              <h1 style="font-size: 17px; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2;">Manual Attendance</h1>
+              <h1 style="font-size: 17px; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2;">Attendance Management</h1>
+
               <p style="font-size: 11.5px; color: #64748b; margin-top: 1px; margin-bottom: 0;">Search participant by mobile number & mark attendance.</p>
             </div>
           </div>
@@ -93,18 +94,19 @@ export async function renderManualAttendance() {
     `;
 
     if (isEventAdmin) {
-      renderAdminPortalLayout('manual-attendance', 'Manual Attendance', contentHTML);
+      renderAdminPortalLayout('manual-attendance', 'Attendance Management', contentHTML);
     } else {
       app.innerHTML = `
         <div class="app-layout">
           ${renderSidebar('manual-attendance')}
           <div class="main-content">
-            ${renderHeader('Manual Attendance', false)}
+            ${renderHeader('Attendance Management', false)}
             ${contentHTML}
           </div>
         </div>
       `;
     }
+
 
     const searchForm = document.getElementById('manual-attendance-search-form');
     const mobileInput = document.getElementById('manual-mobile-input');

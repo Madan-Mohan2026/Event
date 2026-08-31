@@ -3,8 +3,9 @@ import { getEvents } from '../services/eventService.js';
 import { getRegistrations, getAllRegistrations } from '../services/registrationService.js';
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
-import { showAlert, exportToExcelCSV } from '../utils/helpers.js';
+import { showAlert, exportToExcelCSV, formatISTTime, formatISTDateTime, formatISTDate } from '../utils/helpers.js';
 import { notifyKitIssued } from '../services/notificationService.js';
+
 import { API_BASE } from '../utils/constants.js';
 
 export async function renderRegistrations() {
@@ -50,8 +51,9 @@ export async function renderGeneralRegistrations(activeFilters = {}) {
       const foodPref = (r.formData?.['Food Preference'] || r.formData?.['food'] || 'VEG').toUpperCase();
       const isAttended = r.attended === true;
       const isKitIssued = r.kitIssued === true;
-      const appliedDate = r.registeredAt ? new Date(r.registeredAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today';
+      const appliedDate = r.registeredAt ? formatISTDate(r.registeredAt) : 'Today';
       const eventTitle = r.eventId?.title || r.eventTitle || 'Assigned Event';
+
       const regId = r._id;
 
       return `
@@ -201,36 +203,40 @@ export async function renderGeneralRegistrations(activeFilters = {}) {
       if (e.key === 'Enter') triggerFilter();
     });
 
-    // View Details button handler
-    document.querySelectorAll('.view-reg-btn').forEach(btn => {
-      btn.addEventListener('click', async function() {
-        const id = this.getAttribute('data-id');
-        const token = state.token || localStorage.getItem('admin_token');
-        try {
-          const res = await fetch(`${API_BASE}/api/registrations/details/${id}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+    // View Details button handler with instant modal opening
+    const handleViewDetails = async (btn) => {
+      const id = btn.getAttribute('data-id');
+      const idx = parseInt(btn.getAttribute('data-idx'), 10);
+      const localReg = (!isNaN(idx) && registrations[idx]) ? registrations[idx] : registrations.find(r => String(r._id) === String(id) || String(r.registrationId) === String(id));
+
+      if (localReg) {
+        openRegistrationDetailsModal(localReg);
+      }
+
+      const token = state.token || localStorage.getItem('admin_token') || localStorage.getItem('token') || localStorage.getItem('auth_token');
+      try {
+        const res = await fetch(`${API_BASE}/api/registrations/details/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
           const data = await res.json();
-          if (res.ok && data.success && data.registration) {
+          if (data.success && data.registration) {
             openRegistrationDetailsModal(data.registration, data.formSchema);
-          } else {
-            const localReg = registrations.find(r => r._id === id || r.registrationId === id);
-            if (localReg) {
-              openRegistrationDetailsModal(localReg);
-            } else {
-              showAlert(data.error || 'Failed to load participant registration details from database.', 'danger');
-            }
-          }
-        } catch (err) {
-          const localReg = registrations.find(r => r._id === id || r.registrationId === id);
-          if (localReg) {
-            openRegistrationDetailsModal(localReg);
-          } else {
-            showAlert('Network error while loading participant details.', 'danger');
           }
         }
-      });
+      } catch (err) {
+        console.warn('Could not fetch server registration details:', err);
+      }
+    };
+
+    document.querySelectorAll('.view-reg-btn').forEach(btn => {
+      btn.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleViewDetails(this);
+      };
     });
+
 
     // Kit toggle buttons
     document.querySelectorAll('.kit-toggle-btn').forEach(btn => {
@@ -288,12 +294,17 @@ function openRegistrationDetailsModal(reg, formSchema = []) {
   const pPhone = reg.phone || reg.participantPhone || reg.formData?.['Phone Number'] || reg.formData?.['mobile'] || 'N/A';
   const eventTitle = reg.eventId?.title || reg.eventTitle || 'Assigned Event';
   const regId = reg.registrationId || reg._id || 'N/A';
+  const regDate = reg.registeredAt ? formatISTDateTime(reg.registeredAt) : 'N/A';
 
-  const regDate = reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A';
-  const attendedStr = reg.attended ? `✅ Present (${reg.attendedTime || reg.attendedDate || 'Verified'})` : '❌ Absent';
-  const kitStr = reg.kitIssued ? `✅ Issued (${reg.kitIssuedTime || reg.kitIssuedDate || 'Issued'})` : '⏳ Not Issued';
-  const foodStr = reg.foodRedeemed ? `✅ Redeemed (${reg.foodRedeemedTime || reg.foodRedeemedDate || 'Redeemed'})` : (reg.couponIssued ? '🎟️ Coupon Issued' : '⏳ Pending');
+  const attendedTime = formatISTTime(reg.attendedAt, reg.attendedTime, reg.attendedDate);
+  const kitTime = formatISTTime(reg.kitIssuedAt, reg.kitIssuedTime, reg.kitIssuedDate);
+  const foodTime = formatISTTime(reg.foodRedeemedAt, reg.foodRedeemedTime, reg.foodRedeemedDate);
+
+  const attendedStr = reg.attended ? `✅ Present (${attendedTime || 'Verified'})` : '❌ Absent';
+  const kitStr = reg.kitIssued ? `✅ Issued (${kitTime || 'Issued'})` : '⏳ Not Issued';
+  const foodStr = reg.foodRedeemed ? `✅ Redeemed (${foodTime || 'Redeemed'})` : (reg.couponIssued ? '🎟️ Coupon Issued' : '⏳ Pending');
   const statusStr = reg.status || 'Confirmed';
+
 
   // Extract Form Data
   const formDataObj = reg.formData instanceof Map ? Object.fromEntries(reg.formData) : (reg.formData || {});
@@ -418,10 +429,16 @@ function openRegistrationDetailsModal(reg, formSchema = []) {
 
   modal.style.display = 'flex';
 
-  document.getElementById('close-details-modal-btn')?.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-  document.getElementById('reg-modal-close-btn')?.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
+
+  const closeBtn1 = document.getElementById('close-details-modal-btn');
+  if (closeBtn1) closeBtn1.onclick = () => { modal.style.display = 'none'; };
+
+  const closeBtn2 = document.getElementById('reg-modal-close-btn');
+  if (closeBtn2) closeBtn2.onclick = () => { modal.style.display = 'none'; };
 }
+

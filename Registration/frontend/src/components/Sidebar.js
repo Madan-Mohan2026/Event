@@ -27,8 +27,9 @@ export function renderSidebar(activeViewId, user) {
         <ul style="list-style:none;padding:14px 10px;flex:1;overflow-y:auto;">
           <div style="color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;padding:10px 12px 6px;text-transform:uppercase;">Attendance & Audit</div>
           ${nav('admin-verify','🔍','Participant Verification')}
-          ${nav('manual-attendance','📋','Manual Attendance')}
+          ${nav('manual-attendance','📋','Attendance Management')}
           ${nav('admin-dashboard','📊','Dashboard')}
+
           <div style="color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;padding:10px 12px 6px;text-transform:uppercase;">Account</div>
           ${nav('admin-profile','👤','Profile')}
         </ul>

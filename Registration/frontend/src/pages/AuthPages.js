@@ -1,6 +1,9 @@
 import { state, navigate } from '../app.js';
 import { loginUser } from '../services/authService.js';
 import { qrLogin } from '../services/qrService.js';
+import { renderHomePage } from './HomePage.js';
+
+export { renderHomePage };
 
 export function renderSuperAdminLoginPage(errorMsg = '') {
   const app = document.getElementById('app');
@@ -10,22 +13,33 @@ export function renderSuperAdminLoginPage(errorMsg = '') {
         <div class="auth-left-logo-box">🏛️</div>
         <h1>RTIH Event <br><span class="gradient-text">Management System</span></h1>
         <p class="auth-left-desc">Super Admin Portal for managing events, forms, registrations, and desk controllers.</p>
+        <div style="margin-top: 24px;">
+          <a href="#home" style="color: #94a3b8; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            ← Back to RTIH Home Page
+          </a>
+        </div>
       </div>
       <div class="auth-right">
         <div class="auth-right-content">
           <div class="auth-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <a href="#home" style="color:#6366f1; font-size:12px; font-weight:700; text-decoration:none;">← Home</a>
+            </div>
+
             <h2 class="auth-right-title">Super Admin Login</h2>
             <p class="auth-right-subtitle">Enter your system administrator credentials.</p>
+
             ${errorMsg ? `<div class="alert alert-danger">${errorMsg}</div>` : ''}
             <form id="superadmin-login-form">
               <div class="form-group">
                 <label class="form-label">Username / Email</label>
-                <input type="text" id="sa-username" class="form-control" placeholder="superadmin" required />
+                <input type="text" id="sa-username" class="form-control" required autocomplete="username" />
               </div>
               <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" id="sa-password" class="form-control" placeholder="••••••••" required />
+                <input type="password" id="sa-password" class="form-control" required autocomplete="current-password" />
               </div>
+
               <button type="submit" class="btn btn-primary btn-full">Sign In</button>
             </form>
           </div>
@@ -97,8 +111,13 @@ export function renderAdminLoginPage(errorMsg = '', qrToken = null) {
       <div class="auth-right">
         <div class="auth-right-content">
           <div class="auth-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <a href="#home" style="color:#6366f1; font-size:12px; font-weight:700; text-decoration:none;">← Home</a>
+              <a href="#login/super-admin" style="color:#64748b; font-size:12px; font-weight:600; text-decoration:none;">Super Admin Login →</a>
+            </div>
             <h2 class="auth-right-title">Event Admin Portal</h2>
             <p class="auth-right-subtitle">Enter your credentials to access your account.</p>
+
 
             ${isQRMode ? `
               <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5); border:1.5px solid #6ee7b7; border-radius:12px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
@@ -211,6 +230,3 @@ export function renderSetupPage() {
   `;
 }
 
-export function renderHomePage() {
-  renderSuperAdminLoginPage();
-}

@@ -14,7 +14,7 @@ async function loadRouteModule(importFn) {
 
 export async function handleRoute(state) {
   initMobileSidebarToggle();
-  const hash = window.location.hash || (state.token ? '#dashboard' : '#login');
+  const hash = window.location.hash || (state.token ? '#dashboard' : '#home');
 
   // Extract qrToken from hash query string (e.g. #login?qrToken=...)
   let qrToken = null;
@@ -46,14 +46,16 @@ export async function handleRoute(state) {
     const { renderAdminLoginPage } = await loadRouteModule(() => import('../pages/AuthPages.js'));
     return renderAdminLoginPage('', qrToken);
   }
-  if (baseHash === '#home' || baseHash === '') {
+  if (baseHash === '#home' || baseHash === '' || baseHash === '#') {
     const { renderHomePage } = await loadRouteModule(() => import('../pages/AuthPages.js'));
     return renderHomePage();
   }
+
   if (baseHash === '#setup') {
     const { renderSetupPage } = await loadRouteModule(() => import('../pages/AuthPages.js'));
     return renderSetupPage();
   }
+
 
   // Attendance & Desk Routes
   if (baseHash.startsWith('#attendance/') || baseHash.startsWith('#checkin/') || baseHash.startsWith('#event-checkin/')) {

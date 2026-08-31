@@ -246,4 +246,98 @@ export function exportAdminRegistrationsToCSV(records = [], dashboardMetrics = {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Formats a Date object, ISO timestamp string, or time string into Indian Standard Time (IST - Asia/Kolkata).
+ * Ensures consistency across browsers and servers regardless of system time zone.
+ */
+export function formatISTTime(dateVal, timeStr = '', dateStr = '') {
+  // 1. If dateVal is an ISO string or Date object (e.g. attendedAt: "2026-08-31T07:54:42.000Z")
+  if (dateVal) {
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).toLowerCase();
+    }
+  }
+
+  // 2. If only timeStr is provided (or timeStr + dateStr)
+  if (timeStr && typeof timeStr === 'string') {
+    const trimmed = timeStr.trim();
+    if (!trimmed || trimmed === 'N/A' || trimmed === 'Yes') return trimmed;
+
+    // Check if timeStr is already a full ISO string
+    if (trimmed.includes('T') || (trimmed.length > 15 && !isNaN(new Date(trimmed).getTime()))) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }).toLowerCase();
+      }
+    }
+
+    // If we have dateStr or today's date, combine with UTC to convert UTC time string into IST
+    const datePart = dateStr && dateStr.trim() ? dateStr.trim() : new Date().toISOString().split('T')[0];
+    const normalizedDate = datePart.includes('/') ? datePart.split('/').reverse().join('-') : datePart;
+    const utcDate = new Date(`${normalizedDate} ${trimmed} UTC`);
+    if (!isNaN(utcDate.getTime())) {
+      return utcDate.toLocaleTimeString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).toLowerCase();
+    }
+
+    return trimmed;
+  }
+
+  return '';
+}
+
+export function formatISTDateTime(dateVal) {
+  if (!dateVal) return 'N/A';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return String(dateVal);
+
+  const datePart = d.toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const timePart = d.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }).toLowerCase();
+
+  return `${datePart}, ${timePart}`;
+}
+
+export function formatISTDate(dateVal) {
+  if (!dateVal) return 'N/A';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return String(dateVal);
+
+  return d.toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+
 

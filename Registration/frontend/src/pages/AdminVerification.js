@@ -2,6 +2,8 @@ import { state } from '../app.js';
 import { apiFetch } from '../services/api.js';
 import { getEvents, getEventById } from '../services/eventService.js';
 import { renderAdminPortalLayout } from './AdminDashboard.js';
+import { formatISTTime, formatISTDateTime } from '../utils/helpers.js';
+
 
 export async function renderAdminParticipantVerification() {
   let currentSearchType = 'phone';
@@ -122,23 +124,10 @@ export async function renderAdminParticipantVerification() {
     const regId = p.registrationId || 'N/A';
     const email = p.email || 'N/A';
     
-    const formatDateStr = (dStr) => {
-      if (!dStr) return '';
-      try {
-        const d = new Date(dStr);
-        if (isNaN(d.getTime())) return dStr;
-        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + 
-               ' at ' + 
-               d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
-      } catch {
-        return dStr;
-      }
-    };
-
-    const regDateStr = p.registeredDate ? formatDateStr(p.registeredDate) : (p.registeredAt ? formatDateStr(p.registeredAt) : '1 Aug 2026 at 06:01 pm');
-    const attendedTimeStr = p.formattedAttendedTime || (p.attendedTime ? p.attendedTime : (p.attendedAt ? formatDateStr(p.attendedAt) : ''));
-    const kitIssuedTimeStr = p.kitIssuedTime ? p.kitIssuedTime : (p.kitIssuedAt ? formatDateStr(p.kitIssuedAt) : '');
-    const foodRedeemedTimeStr = p.foodRedeemedTime ? p.foodRedeemedTime : (p.foodRedeemedAt ? formatDateStr(p.foodRedeemedAt) : '');
+    const regDateStr = p.registeredAt ? formatISTDateTime(p.registeredAt) : (p.registeredDate ? formatISTDateTime(p.registeredDate) : 'N/A');
+    const attendedTimeStr = formatISTTime(p.attendedAt, p.attendedTime, p.attendedDate);
+    const kitIssuedTimeStr = formatISTTime(p.kitIssuedAt, p.kitIssuedTime, p.kitIssuedDate);
+    const foodRedeemedTimeStr = formatISTTime(p.foodRedeemedAt, p.foodRedeemedTime, p.foodRedeemedDate);
 
     container.innerHTML = `
       <div class="verify-results-wrapper" style="max-width:680px; width:100%; margin:0 auto; display:flex; flex-direction:column; gap:16px; padding-bottom:40px;">
