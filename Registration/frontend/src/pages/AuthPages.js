@@ -13,19 +13,10 @@ export function renderSuperAdminLoginPage(errorMsg = '') {
         <div class="auth-left-logo-box">🏛️</div>
         <h1>RTIH Event <br><span class="gradient-text">Management System</span></h1>
         <p class="auth-left-desc">Super Admin Portal for managing events, forms, registrations, and desk controllers.</p>
-        <div style="margin-top: 24px;">
-          <a href="#home" style="color: #94a3b8; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-            ← Back to RTIH Home Page
-          </a>
-        </div>
       </div>
       <div class="auth-right">
         <div class="auth-right-content">
           <div class="auth-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <a href="#home" style="color:#6366f1; font-size:12px; font-weight:700; text-decoration:none;">← Home</a>
-            </div>
-
             <h2 class="auth-right-title">Super Admin Login</h2>
             <p class="auth-right-subtitle">Enter your system administrator credentials.</p>
 
@@ -111,10 +102,6 @@ export function renderAdminLoginPage(errorMsg = '', qrToken = null) {
       <div class="auth-right">
         <div class="auth-right-content">
           <div class="auth-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <a href="#home" style="color:#6366f1; font-size:12px; font-weight:700; text-decoration:none;">← Home</a>
-              <a href="#login/super-admin" style="color:#64748b; font-size:12px; font-weight:600; text-decoration:none;">Super Admin Login →</a>
-            </div>
             <h2 class="auth-right-title">Event Admin Portal</h2>
             <p class="auth-right-subtitle">Enter your credentials to access your account.</p>
 
