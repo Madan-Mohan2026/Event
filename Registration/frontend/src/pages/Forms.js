@@ -247,13 +247,201 @@ export async function renderFormStudioView(eventId) {
       { value: 'file', label: 'File Upload' }
     ];
 
-    const drawStudioUI = () => {
+    // Render outer page frame ONCE
+    app.innerHTML = `
+      <div class="admin-layout">
+        ${renderSidebar('forms', state.user)}
+        <div class="main-wrapper">
+          ${renderHeader('Form Builder', false)}
+          <main class="content-body" id="form-studio-content-body"></main>
+        </div>
+      </div>
+    `;
+
+    // Global Logout binding
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+      state.token = null;
+      state.user = null;
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      navigate('#login');
+    });
+
+    const contentBody = document.getElementById('form-studio-content-body');
+
+    // Render static studio layout container into contentBody
+    contentBody.innerHTML = `
+      <div class="form-designer-container" style="max-width:880px; margin:0 auto; padding-bottom:60px;">
+        <!-- Top Header Card -->
+        <div class="form-designer-header-card" style="background:#ffffff; border-radius:20px; padding:24px 28px; box-shadow:0 4px 20px rgba(0,0,0,0.04); border:1px solid #e2e8f0; margin-bottom:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <span style="font-size:11px; font-weight:800; color:#4f46e5; letter-spacing:1px; text-transform:uppercase;">📝 DYNAMIC FORM BUILDER</span>
+            <button type="button" id="back-to-forms-btn" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; padding:8px 16px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer;">
+              ← Back to Forms
+            </button>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:6px;">Form Name *</label>
+            <input type="text" id="studio-form-title-input" value="${selectedEvent.title || ''}" placeholder="Enter form name (e.g. Annual Summit Form)" style="font-size:18px; font-weight:800; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:12px; padding:12px 16px; width:100%; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);" />
+          </div>
+
+          <div>
+            <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:6px;">Form Description (Optional)</label>
+            <textarea id="studio-form-desc-input" rows="2" placeholder="Enter optional form description..." style="font-size:13.5px; color:#334155; border:1.5px solid #cbd5e1; border-radius:12px; padding:10px 14px; width:100%; font-family:inherit;">${selectedEvent.description || ''}</textarea>
+          </div>
+        </div>
+
+        <!-- Dynamic Sections Stack -->
+        <div id="studio-sections-stack"></div>
+
+        <!-- Add Section & Bottom Actions -->
+        <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
+          <button type="button" id="add-new-section-btn" style="width:100%; background:#ffffff; border:2px dashed #6366f1; color:#4f46e5; padding:16px; border-radius:16px; font-size:15px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; box-shadow:0 2px 8px rgba(99,102,241,0.05);">
+            ➕ Add New Section
+          </button>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px;">
+            <button type="button" id="preview-form-btn" style="background:#f1f5f9; color:#334155; border:1.5px solid #cbd5e1; padding:14px 22px; border-radius:14px; font-size:14px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+              👁️ Live Preview
+            </button>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button type="button" id="save-draft-btn" style="background:#ffffff; color:#4f46e5; border:1.5px solid #c7d2fe; padding:14px 22px; border-radius:14px; font-size:14px; font-weight:800; cursor:pointer;">
+                💾 Save as Draft
+              </button>
+              <button type="button" id="save-form-config-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#ffffff; border:none; padding:14px 28px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,0.35);">
+                ✓ Save Form
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Static listener bindings (Back, Title, Desc)
+    document.getElementById('back-to-forms-btn')?.addEventListener('click', () => {
+      navigate('#forms');
+    });
+
+    document.getElementById('studio-form-title-input')?.addEventListener('input', (e) => {
+      selectedEvent.title = e.target.value;
+    });
+
+    document.getElementById('studio-form-desc-input')?.addEventListener('input', (e) => {
+      selectedEvent.description = e.target.value;
+    });
+
+    // Sync all currently displayed DOM input values into JS memory
+    const syncDOMToState = () => {
+      const titleInput = document.getElementById('studio-form-title-input');
+      if (titleInput) selectedEvent.title = titleInput.value;
+
+      const descInput = document.getElementById('studio-form-desc-input');
+      if (descInput) selectedEvent.description = descInput.value;
+
+      document.querySelectorAll('.sec-title-input').forEach(inp => {
+        const sIdx = parseInt(inp.getAttribute('data-sidx'), 10);
+        if (selectedEvent.formSchema[sIdx]) {
+          selectedEvent.formSchema[sIdx].title = inp.value;
+        }
+      });
+
+      document.querySelectorAll('.sec-desc-input').forEach(inp => {
+        const sIdx = parseInt(inp.getAttribute('data-sidx'), 10);
+        if (selectedEvent.formSchema[sIdx]) {
+          selectedEvent.formSchema[sIdx].description = inp.value;
+        }
+      });
+
+      document.querySelectorAll('.field-label-input').forEach(inp => {
+        const sIdx = parseInt(inp.getAttribute('data-sidx'), 10);
+        const fIdx = parseInt(inp.getAttribute('data-fidx'), 10);
+        if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
+          selectedEvent.formSchema[sIdx].fields[fIdx].label = inp.value;
+        }
+      });
+
+      document.querySelectorAll('.field-placeholder-input').forEach(inp => {
+        const sIdx = parseInt(inp.getAttribute('data-sidx'), 10);
+        const fIdx = parseInt(inp.getAttribute('data-fidx'), 10);
+        if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
+          selectedEvent.formSchema[sIdx].fields[fIdx].placeholder = inp.value;
+        }
+      });
+
+      document.querySelectorAll('.field-help-input').forEach(inp => {
+        const sIdx = parseInt(inp.getAttribute('data-sidx'), 10);
+        const fIdx = parseInt(inp.getAttribute('data-fidx'), 10);
+        if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
+          selectedEvent.formSchema[sIdx].fields[fIdx].helpText = inp.value;
+        }
+      });
+
+      document.querySelectorAll('.field-type-select').forEach(sel => {
+        const sIdx = parseInt(sel.getAttribute('data-sidx'), 10);
+        const fIdx = parseInt(sel.getAttribute('data-fidx'), 10);
+        if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
+          selectedEvent.formSchema[sIdx].fields[fIdx].fieldType = sel.value;
+          selectedEvent.formSchema[sIdx].fields[fIdx].type = sel.value;
+        }
+      });
+
+      document.querySelectorAll('.field-required-cb').forEach(cb => {
+        const sIdx = parseInt(cb.getAttribute('data-sidx'), 10);
+        const fIdx = parseInt(cb.getAttribute('data-fidx'), 10);
+        if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
+          selectedEvent.formSchema[sIdx].fields[fIdx].required = cb.checked;
+        }
+      });
+
+      document.querySelectorAll('.opt-val-input').forEach(inp => {
+        const sIdx = parseInt(inp.getAttribute('data-sidx'), 10);
+        const fIdx = parseInt(inp.getAttribute('data-fidx'), 10);
+        const oIdx = parseInt(inp.getAttribute('data-oidx'), 10);
+        if (selectedEvent.formSchema[sIdx]?.fields[fIdx]?.options) {
+          selectedEvent.formSchema[sIdx].fields[fIdx].options[oIdx] = inp.value;
+        }
+      });
+    };
+
+    const saveScrollPosition = () => {
+      const mainWrapper = document.querySelector('.main-wrapper');
+      return {
+        wrapperTop: mainWrapper ? mainWrapper.scrollTop : 0,
+        windowTop: window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0
+      };
+    };
+
+    const restoreScrollPosition = (pos) => {
+      if (!pos) return;
+      const mainWrapper = document.querySelector('.main-wrapper');
+      if (mainWrapper) {
+        mainWrapper.scrollTop = pos.wrapperTop;
+      }
+      window.scrollTo(0, pos.windowTop);
+      if (document.documentElement) document.documentElement.scrollTop = pos.windowTop;
+      if (document.body) document.body.scrollTop = pos.windowTop;
+
+      requestAnimationFrame(() => {
+        if (mainWrapper) {
+          mainWrapper.scrollTop = pos.wrapperTop;
+        }
+        window.scrollTo(0, pos.windowTop);
+      });
+    };
+
+    // Render sections & fields into #studio-sections-stack with zero scroll reset
+    const drawSectionsStack = () => {
+      syncDOMToState();
+      const pos = saveScrollPosition();
+
       const sections = selectedEvent.formSchema || [];
 
       const sectionsHTML = sections.length > 0
         ? sections.map((sec, sIdx) => {
             const fields = Array.isArray(sec.fields) ? sec.fields : [];
-            
+
             const fieldsHTML = fields.length > 0
               ? fields.map((field, fIdx) => {
                   const currentType = (field.fieldType || field.type || 'short_text').toLowerCase();
@@ -385,90 +573,12 @@ export async function renderFormStudioView(eventId) {
           </div>
         `;
 
-      const html = `
-        <div class="form-designer-container" style="max-width:880px; margin:0 auto; padding-bottom:60px;">
-          <!-- Top Header Card -->
-          <div class="form-designer-header-card" style="background:#ffffff; border-radius:20px; padding:24px 28px; box-shadow:0 4px 20px rgba(0,0,0,0.04); border:1px solid #e2e8f0; margin-bottom:24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-              <span style="font-size:11px; font-weight:800; color:#4f46e5; letter-spacing:1px; text-transform:uppercase;">📝 DYNAMIC FORM BUILDER</span>
-              <button type="button" id="back-to-forms-btn" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; padding:8px 16px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer;">
-                ← Back to Forms
-              </button>
-            </div>
+      const stackEl = document.getElementById('studio-sections-stack');
+      if (stackEl) {
+        stackEl.innerHTML = sectionsHTML;
+      }
 
-            <div style="margin-bottom:16px;">
-              <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:6px;">Form Name *</label>
-              <input type="text" id="studio-form-title-input" value="${selectedEvent.title || ''}" placeholder="Enter form name (e.g. Annual Summit Form)" style="font-size:18px; font-weight:800; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:12px; padding:12px 16px; width:100%; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);" />
-            </div>
-
-            <div>
-              <label style="display:block; font-size:12px; font-weight:800; color:#334155; margin-bottom:6px;">Form Description (Optional)</label>
-              <textarea id="studio-form-desc-input" rows="2" placeholder="Enter optional form description..." style="font-size:13.5px; color:#334155; border:1.5px solid #cbd5e1; border-radius:12px; padding:10px 14px; width:100%; font-family:inherit;">${selectedEvent.description || ''}</textarea>
-            </div>
-          </div>
-
-          <!-- Sections Stack -->
-          <div id="studio-sections-stack">
-            ${sectionsHTML}
-          </div>
-
-          <!-- Add Section & Bottom Actions -->
-          <div style="display:flex; flex-direction:column; gap:16px; margin-top:24px;">
-            <button type="button" id="add-new-section-btn" style="width:100%; background:#ffffff; border:2px dashed #6366f1; color:#4f46e5; padding:16px; border-radius:16px; font-size:15px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; box-shadow:0 2px 8px rgba(99,102,241,0.05);">
-              ➕ Add New Section
-            </button>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px;">
-              <button type="button" id="preview-form-btn" style="background:#f1f5f9; color:#334155; border:1.5px solid #cbd5e1; padding:14px 22px; border-radius:14px; font-size:14px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                👁️ Live Preview
-              </button>
-
-              <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="button" id="save-draft-btn" style="background:#ffffff; color:#4f46e5; border:1.5px solid #c7d2fe; padding:14px 22px; border-radius:14px; font-size:14px; font-weight:800; cursor:pointer;">
-                  💾 Save as Draft
-                </button>
-                <button type="button" id="save-form-config-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#ffffff; border:none; padding:14px 28px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,0.35);">
-                  ✓ Save Form
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-
-      app.innerHTML = `
-        <div class="admin-layout">
-          ${renderSidebar('forms', state.user)}
-          <div class="main-wrapper">
-            ${renderHeader('Form Builder', false)}
-            <main class="content-body">${html}</main>
-          </div>
-        </div>
-      `;
-
-      // Event Bindings
-
-      // Logout
-      document.getElementById('logout-btn')?.addEventListener('click', () => {
-        state.token = null;
-        state.user = null;
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        navigate('#login');
-      });
-
-      // Back button
-      document.getElementById('back-to-forms-btn')?.addEventListener('click', () => {
-        navigate('#forms');
-      });
-
-      // Form Title & Description Input listeners
-      document.getElementById('studio-form-title-input')?.addEventListener('input', (e) => {
-        selectedEvent.title = e.target.value;
-      });
-      document.getElementById('studio-form-desc-input')?.addEventListener('input', (e) => {
-        selectedEvent.description = e.target.value;
-      });
+      // Re-bind listeners for sections & fields
 
       // Section Title & Description Input listeners
       document.querySelectorAll('.sec-title-input').forEach(inp => {
@@ -491,50 +601,38 @@ export async function renderFormStudioView(eventId) {
       // Move Section Up / Down / Delete
       document.querySelectorAll('.move-sec-up-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
           if (sIdx > 0) {
             const temp = selectedEvent.formSchema[sIdx];
             selectedEvent.formSchema[sIdx] = selectedEvent.formSchema[sIdx - 1];
             selectedEvent.formSchema[sIdx - 1] = temp;
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
       document.querySelectorAll('.move-sec-down-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
           if (sIdx < selectedEvent.formSchema.length - 1) {
             const temp = selectedEvent.formSchema[sIdx];
             selectedEvent.formSchema[sIdx] = selectedEvent.formSchema[sIdx + 1];
             selectedEvent.formSchema[sIdx + 1] = temp;
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
       document.querySelectorAll('.delete-sec-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
           selectedEvent.formSchema.splice(sIdx, 1);
-          drawStudioUI();
+          drawSectionsStack();
         });
-      });
-
-      // Add New Section
-      document.getElementById('add-new-section-btn')?.addEventListener('click', () => {
-        selectedEvent.formSchema.push({
-          id: `sec_${Date.now()}`,
-          isSection: true,
-          title: `Section ${selectedEvent.formSchema.length + 1}`,
-          description: '',
-          fields: []
-        });
-        drawStudioUI();
       });
 
       // Add Field to Section
       document.querySelectorAll('.add-field-to-sec-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
           const targetSec = selectedEvent.formSchema[sIdx];
           if (targetSec) {
             if (!Array.isArray(targetSec.fields)) targetSec.fields = [];
@@ -549,7 +647,7 @@ export async function renderFormStudioView(eventId) {
               helpText: '',
               options: ['Option 1', 'Option 2']
             });
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
@@ -571,7 +669,7 @@ export async function renderFormStudioView(eventId) {
           if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
             selectedEvent.formSchema[sIdx].fields[fIdx].fieldType = e.target.value;
             selectedEvent.formSchema[sIdx].fields[fIdx].type = e.target.value;
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
@@ -616,24 +714,24 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.add-option-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
           const targetField = selectedEvent.formSchema[sIdx]?.fields[fIdx];
           if (targetField) {
             if (!Array.isArray(targetField.options)) targetField.options = [];
             targetField.options.push(`Option ${targetField.options.length + 1}`);
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
       document.querySelectorAll('.remove-opt-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
-          const oIdx = parseInt(e.target.getAttribute('data-oidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
+          const oIdx = parseInt(e.currentTarget.getAttribute('data-oidx'), 10);
           if (selectedEvent.formSchema[sIdx]?.fields[fIdx]?.options) {
             selectedEvent.formSchema[sIdx].fields[fIdx].options.splice(oIdx, 1);
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
@@ -641,34 +739,34 @@ export async function renderFormStudioView(eventId) {
       // Move Field Up / Down / Duplicate / Delete
       document.querySelectorAll('.move-field-up-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
           const fields = selectedEvent.formSchema[sIdx]?.fields;
           if (fields && fIdx > 0) {
             const temp = fields[fIdx];
             fields[fIdx] = fields[fIdx - 1];
             fields[fIdx - 1] = temp;
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
       document.querySelectorAll('.move-field-down-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
           const fields = selectedEvent.formSchema[sIdx]?.fields;
           if (fields && fIdx < fields.length - 1) {
             const temp = fields[fIdx];
             fields[fIdx] = fields[fIdx + 1];
             fields[fIdx + 1] = temp;
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
       document.querySelectorAll('.duplicate-field-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
           const sourceField = selectedEvent.formSchema[sIdx]?.fields[fIdx];
           if (sourceField) {
             const clonedField = {
@@ -678,81 +776,123 @@ export async function renderFormStudioView(eventId) {
               label: `${sourceField.label || 'Field'} (Copy)`
             };
             selectedEvent.formSchema[sIdx].fields.splice(fIdx + 1, 0, clonedField);
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
       document.querySelectorAll('.delete-field-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
+          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
           if (selectedEvent.formSchema[sIdx]?.fields) {
             selectedEvent.formSchema[sIdx].fields.splice(fIdx, 1);
-            drawStudioUI();
+            drawSectionsStack();
           }
         });
       });
 
-      // Live Preview Button
-      document.getElementById('preview-form-btn')?.addEventListener('click', () => {
-        openLivePreviewModal(selectedEvent);
-      });
-
-      // Save Handler (Save Form & Save Draft)
-      const handleSave = async (isDraft = false) => {
-        try {
-          const titleInput = document.getElementById('studio-form-title-input');
-          const descInput = document.getElementById('studio-form-desc-input');
-          const customTitle = titleInput ? titleInput.value.trim() : selectedEvent.title;
-          const customDesc = descInput ? descInput.value.trim() : (selectedEvent.description || '');
-
-          if (!customTitle) {
-            showAlert('Please enter a form name before saving.', 'danger');
-            return;
-          }
-
-          selectedEvent.title = customTitle;
-          selectedEvent.description = customDesc;
-
-          const isValidObjectId = selectedEvent._id && /^[0-9a-fA-F]{24}$/.test(String(selectedEvent._id));
-
-          if (isNewForm || !isValidObjectId) {
-            const createRes = await fetch(`${API_BASE}/api/forms`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${state.token || localStorage.getItem('admin_token')}`
-              },
-              body: JSON.stringify({
-                title: customTitle,
-                description: customDesc,
-                formSchema: selectedEvent.formSchema,
-                fields: selectedEvent.formSchema
-              })
-            });
-            const newFormDoc = await createRes.json();
-            if (!createRes.ok) {
-              throw new Error(newFormDoc.error || 'Failed to create form in database.');
-            }
-          } else {
-            await saveFormSchema(selectedEvent._id, selectedEvent.formSchema, customTitle, customDesc);
-          }
-
-          notifyFormCreated(customTitle);
-          showAlert(isDraft ? 'Form draft saved successfully!' : 'Form saved successfully!', 'success');
-          if (!isDraft) {
-            navigate('#forms');
-          }
-        } catch (err) {
-          showAlert('Failed to save form: ' + err.message, 'danger');
-        }
-      };
-
-      document.getElementById('save-draft-btn')?.addEventListener('click', () => handleSave(true));
-      document.getElementById('save-form-config-btn')?.addEventListener('click', () => handleSave(false));
+      restoreScrollPosition(pos);
     };
 
-    drawStudioUI();
+    // Add New Section listener
+    document.getElementById('add-new-section-btn')?.addEventListener('click', () => {
+      selectedEvent.formSchema.push({
+        id: `sec_${Date.now()}`,
+        isSection: true,
+        title: `Section ${selectedEvent.formSchema.length + 1}`,
+        description: '',
+        fields: []
+      });
+      drawSectionsStack();
+    });
+
+    // Live Preview Button listener
+    document.getElementById('preview-form-btn')?.addEventListener('click', () => {
+      syncDOMToState();
+      openLivePreviewModal(selectedEvent);
+    });
+
+    // Save Handler (Save Form & Save Draft) with small local loading state
+    const handleSave = async (isDraft = false) => {
+      const draftBtn = document.getElementById('save-draft-btn');
+      const saveBtn = document.getElementById('save-form-config-btn');
+      const targetBtn = isDraft ? draftBtn : saveBtn;
+      const originalText = targetBtn ? targetBtn.innerHTML : '';
+
+      try {
+        syncDOMToState();
+
+        const customTitle = (selectedEvent.title || '').trim();
+        const customDesc = (selectedEvent.description || '').trim();
+
+        if (!customTitle) {
+          showAlert('Please enter a form name before saving.', 'danger');
+          return;
+        }
+
+        selectedEvent.title = customTitle;
+        selectedEvent.description = customDesc;
+
+        // Show local loading state on target button
+        if (targetBtn) {
+          targetBtn.disabled = true;
+          if (draftBtn) draftBtn.disabled = true;
+          if (saveBtn) saveBtn.disabled = true;
+          targetBtn.innerHTML = isDraft ? '💾 Saving Draft...' : '⏳ Saving Form...';
+        }
+
+        const isValidObjectId = selectedEvent._id && /^[0-9a-fA-F]{24}$/.test(String(selectedEvent._id));
+
+        if (isNewForm || !isValidObjectId) {
+          const createRes = await fetch(`${API_BASE}/api/forms`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.token || localStorage.getItem('admin_token')}`
+            },
+            body: JSON.stringify({
+              title: customTitle,
+              description: customDesc,
+              formSchema: selectedEvent.formSchema,
+              fields: selectedEvent.formSchema
+            })
+          });
+          const newFormDoc = await createRes.json();
+          if (!createRes.ok) {
+            throw new Error(newFormDoc.error || 'Failed to create form in database.');
+          }
+          if (newFormDoc && (newFormDoc._id || newFormDoc.id)) {
+            selectedEvent._id = newFormDoc._id || newFormDoc.id;
+            isNewForm = false;
+          }
+        } else {
+          await saveFormSchema(selectedEvent._id, selectedEvent.formSchema, customTitle, customDesc);
+        }
+
+        notifyFormCreated(customTitle);
+        showAlert(isDraft ? 'Form draft saved successfully!' : 'Form saved successfully!', 'success');
+
+        if (!isDraft) {
+          navigate('#forms');
+        }
+      } catch (err) {
+        showAlert('Failed to save form: ' + err.message, 'danger');
+      } finally {
+        // Restore local loading state
+        if (targetBtn) {
+          targetBtn.innerHTML = originalText;
+        }
+        if (draftBtn) draftBtn.disabled = false;
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    };
+
+    document.getElementById('save-draft-btn')?.addEventListener('click', () => handleSave(true));
+    document.getElementById('save-form-config-btn')?.addEventListener('click', () => handleSave(false));
+
+    // Initial draw of sections stack
+    drawSectionsStack();
+
   } catch (err) {
     app.innerHTML = `
       <div class="admin-layout">

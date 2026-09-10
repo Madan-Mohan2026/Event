@@ -115,7 +115,7 @@ export function exportToExcelCSV(records = [], filename = 'Exported_Data.csv') {
     r.category || 'General',
     r.attended ? 'Checked In' : 'Absent',
     r.kitIssued ? 'Issued' : 'Pending',
-    (r.foodRedeemed || r.couponIssued) ? 'Redeemed' : 'Pending'
+    (r.foodRedeemed || r.foodIssued || r.foodTaken || r.couponIssued) ? 'Issued' : 'Not Issued'
   ]);
 
   const csvContent = '\uFEFF' + headers.map(escapeCSV).join(',') + '\n' + rows.map(row => row.map(escapeCSV).join(',')).join('\n');
