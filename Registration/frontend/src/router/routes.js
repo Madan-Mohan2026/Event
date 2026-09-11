@@ -106,10 +106,16 @@ export async function handleRoute(state) {
   }
 
   // Super Admin Routes
-  if (baseHash === '#events' || baseHash === '#create-event') {
+  if (baseHash === '#events') {
     state.activeView = 'events';
     const { renderEvents } = await loadRouteModule(() => import('../pages/Events.js'));
     return renderEvents(state);
+  }
+  if (baseHash === '#create-event' || baseHash.startsWith('#edit-event/')) {
+    state.activeView = 'events';
+    const eventId = baseHash.startsWith('#edit-event/') ? baseHash.split('/')[1] : null;
+    const { renderCreateEventPage } = await loadRouteModule(() => import('../pages/CreateEventPage.js'));
+    return renderCreateEventPage(state, eventId);
   }
   if (baseHash.startsWith('#registrations')) {
     state.activeView = 'registrations';

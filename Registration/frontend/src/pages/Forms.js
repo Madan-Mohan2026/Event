@@ -115,13 +115,13 @@ export async function renderFormsListView() {
       navigate('#form-studio/new');
     });
 
-    // Topbar "+ New Form" button opens Create Event modal with auto form creation
+    // Topbar "+ New Form" button opens Create Event page
     document.getElementById('topbar-new-event-btn')?.addEventListener('click', () => {
-      openCreateEventModal(null, renderFormsListView);
+      navigate('#create-event');
     });
 
     document.getElementById('forms-empty-new-btn')?.addEventListener('click', () => {
-      openCreateEventModal(null, renderFormsListView);
+      navigate('#create-event');
     });
 
     // Tab bindings

@@ -95,14 +95,10 @@ export async function renderEventsList() {
     });
 
     // Create Event button handlers
-    const openCreateModal = () => openCreateEventModal(null, renderEventsList);
-    document.getElementById('topbar-new-event-btn')?.addEventListener('click', openCreateModal);
-    document.getElementById('page-create-event-btn')?.addEventListener('click', openCreateModal);
-    document.getElementById('empty-state-new-event-btn')?.addEventListener('click', openCreateModal);
-
-    if (window.location.hash === '#create-event') {
-      setTimeout(openCreateModal, 100);
-    }
+    const openCreateScreen = () => navigate('#create-event');
+    document.getElementById('topbar-new-event-btn')?.addEventListener('click', openCreateScreen);
+    document.getElementById('page-create-event-btn')?.addEventListener('click', openCreateScreen);
+    document.getElementById('empty-state-new-event-btn')?.addEventListener('click', openCreateScreen);
 
     // Helper: Confirmation Modal
     function showConfirmModal({ icon, title, body, confirmLabel, confirmColor }) {
@@ -308,18 +304,9 @@ export async function renderEventsList() {
 
     // Bind Edit Button
     document.querySelectorAll('.edit-event-btn').forEach(btn => {
-      btn.addEventListener('click', async function() {
+      btn.addEventListener('click', function() {
         const id = this.getAttribute('data-id');
-        let eventObj = state.events.find(ev => String(ev._id) === String(id));
-        try {
-          const freshEvent = await getEventById(id);
-          if (freshEvent) {
-            eventObj = { ...eventObj, ...freshEvent };
-          }
-        } catch (err) {
-          // fallback to local eventObj
-        }
-        if (eventObj) openCreateEventModal(eventObj, renderEventsList);
+        navigate(`#edit-event/${id}`);
       });
     });
 
