@@ -14,8 +14,9 @@ export async function renderCreateEventPage(state, eventId = null) {
   const app = document.getElementById('app');
   if (!app) return;
 
-  // Restore overflow style in case it was locked previously
-  document.body.style.overflow = '';
+  // Lock outer browser window scrollbar so only main-wrapper scrolls naturally
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
 
   let eventObj = null;
   if (eventId) {
