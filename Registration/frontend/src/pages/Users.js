@@ -69,9 +69,34 @@ export async function renderUsers() {
     // Filter out super_admin accounts so this interface manages only Admins and Event Organizers
     const managedUsers = usersList.filter(u => u.role !== 'super_admin' && u.role !== 'superadmin');
 
-    const eventsOptionsHTML = eventsList.map(ev => 
-      `<option value="${ev._id}">${ev.title} (${ev.category || 'General'})</option>`
-    ).join('');
+    // Collect set of all event IDs already assigned to any admin user
+    const assignedEventIdsSet = new Set();
+    usersList.forEach(u => {
+      const ids = Array.isArray(u.assignedEventIds) && u.assignedEventIds.length > 0
+        ? u.assignedEventIds
+        : (u.assignedEventId ? [u.assignedEventId] : (Array.isArray(u.assignedEvents) ? u.assignedEvents : []));
+      ids.forEach(id => {
+        if (id) assignedEventIdsSet.add(String(id));
+      });
+    });
+
+    // Filter eventsList to only include unassigned events
+    const unassignedEvents = eventsList.filter(ev => {
+      const isAssignedInUserList = assignedEventIdsSet.has(String(ev._id));
+      const isAssignedInEventObj = Boolean(
+        ev.assignedAdmin &&
+        ev.assignedAdmin !== 'unassigned' &&
+        ev.assignedAdmin !== 'Unassigned (Super Admin Only)' &&
+        String(ev.assignedAdmin).trim() !== ''
+      );
+      return !isAssignedInUserList && !isAssignedInEventObj;
+    });
+
+    const eventsOptionsHTML = unassignedEvents.length > 0
+      ? unassignedEvents.map(ev => 
+          `<option value="${ev._id}">${ev.title} (${ev.category || 'General'})</option>`
+        ).join('')
+      : `<option value="" disabled>No unassigned events available</option>`;
 
     const userCardsHTML = managedUsers.map(u => {
       const initial = (u.fullName || u.username || u.email || 'A').charAt(0).toUpperCase();
