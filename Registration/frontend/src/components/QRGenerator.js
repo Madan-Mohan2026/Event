@@ -1,7 +1,14 @@
 // QR Generator & Download Component
-import { downloadQRImage } from '../utils/helpers.js';
+import { downloadQRWithHeader } from '../utils/helpers.js';
 
 export function renderQrModalHTML(title, dataUrl, targetUrl, filename = 'event-qr.png') {
+  setTimeout(() => {
+    const btn = document.getElementById('download-qr-action-btn');
+    if (btn) {
+      btn.onclick = () => downloadQRWithHeader(dataUrl, title || 'QR CODE', targetUrl || '', filename);
+    }
+  }, 50);
+
   return `
     <div class="modal-overlay" id="qr-preview-modal" style="display:flex;">
       <div class="modal-dialog" style="max-width:440px;text-align:center;">

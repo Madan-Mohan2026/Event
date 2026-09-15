@@ -4,7 +4,7 @@ import { fetchAllForms } from '../services/formService.js';
 import { apiFetch } from '../services/api.js';
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
-import { showAlert, copyToClipboard } from '../utils/helpers.js';
+import { showAlert, copyToClipboard, downloadQRWithHeader } from '../utils/helpers.js';
 import { notifyEventDeleted } from '../services/notificationService.js';
 import { renderEventCard } from '../components/events/EventCard.js';
 import { openCreateEventModal } from '../components/events/CreateEventModal.js';
@@ -495,26 +495,15 @@ export async function renderEventCheckinQrModal(eventId) {
       const btn = this;
       const origHtml = btn.innerHTML;
 
-      // Cross-origin <a download> is silently blocked by browsers.
-      // Solution: fetch the image as a Blob first, then download via a local object URL.
       try {
         btn.innerHTML = '⏳ Downloading...';
         btn.disabled = true;
 
-        const response = await fetch(qrImgSrc);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const blob = await response.blob();
+        const qrHeading = currentTab === 'food' ? 'FOOD QR CODE' : 'CHECK-IN QR CODE';
+        const qrSubtitle = `Event: ${eventTitle}`;
+        const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${currentTab}-qr.png`;
 
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = `${eventTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${currentTab}-qr.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Revoke after a short delay to allow the download to start
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+        await downloadQRWithHeader(qrImgSrc, qrHeading, qrSubtitle, filename);
 
         btn.innerHTML = '✅ Downloaded!';
         setTimeout(() => {

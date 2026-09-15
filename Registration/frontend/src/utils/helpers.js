@@ -90,18 +90,172 @@ function createAlertContainer() {
   return container;
 }
 
-export function downloadQRImage(dataUrl, filename = 'qr-code.png') {
-  if (!dataUrl) return;
+/**
+ * Helper to download a QR code wrapped in a clean card with a title/heading at the top.
+ * Supports food, check-in, admin, and generic QR categories.
+ */
+export async function downloadQRWithHeader(qrImgSrc, title = 'QR Code', subtitle = '', filename = 'qr-code.png') {
+  if (!qrImgSrc) return;
+
+  let dataUrl = qrImgSrc;
+  if (typeof qrImgSrc === 'string' && !qrImgSrc.startsWith('data:image/')) {
+    try {
+      const response = await fetch(qrImgSrc);
+      const blob = await response.blob();
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('Could not convert QR URL to DataURL, falling back to original URL:', err);
+      dataUrl = qrImgSrc;
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const width = 480;
+        const padding = 32;
+        const qrSize = 320;
+
+        const lowerTitle = String(title || 'QR Code').toLowerCase();
+        let primaryColor = '#4f46e5'; // Indigo default
+
+        if (lowerTitle.includes('food')) {
+          primaryColor = '#ea580c'; // Food Orange / Amber
+        } else if (lowerTitle.includes('check-in') || lowerTitle.includes('checkin') || lowerTitle.includes('attendance')) {
+          primaryColor = '#059669'; // Emerald Green for Check-in
+        } else if (lowerTitle.includes('admin')) {
+          primaryColor = '#7c3aed'; // Purple for Admin
+        }
+
+        const titleText = String(title || 'QR CODE').toUpperCase();
+        const subtitleText = subtitle ? String(subtitle).trim() : '';
+
+        const topBannerHeight = 12;
+        const titleFontSize = 24;
+        const subtitleFontSize = 14;
+
+        let headerHeight = titleFontSize;
+        if (subtitleText) {
+          headerHeight += 8 + subtitleFontSize;
+        }
+
+        const totalHeaderOffset = topBannerHeight + padding + headerHeight + 24;
+        const totalHeight = totalHeaderOffset + qrSize + padding + 28;
+
+        canvas.width = width;
+        canvas.height = totalHeight;
+
+        // Fill background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, totalHeight);
+
+        // Top Color Accent Bar
+        ctx.fillStyle = primaryColor;
+        ctx.fillRect(0, 0, width, topBannerHeight);
+
+        // Card Outer Border
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, width - 2, totalHeight - 2);
+
+        // Draw Title (Heading)
+        let currentY = topBannerHeight + padding + 10;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = `bold ${titleFontSize}px Inter, system-ui, -apple-system, sans-serif`;
+        ctx.fillText(titleText, width / 2, currentY);
+        currentY += titleFontSize + 6;
+
+        // Draw Subtitle
+        if (subtitleText) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = `600 ${subtitleFontSize}px Inter, system-ui, -apple-system, sans-serif`;
+          ctx.fillText(subtitleText, width / 2, currentY);
+        }
+
+        // Draw QR Container Box
+        const qrBoxX = (width - qrSize) / 2;
+        const qrBoxY = totalHeaderOffset;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 4;
+        ctx.fillRect(qrBoxX, qrBoxY, qrSize, qrSize);
+
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Frame Border around QR
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(qrBoxX, qrBoxY, qrSize, qrSize);
+
+        // Draw QR Image inside frame
+        ctx.drawImage(img, qrBoxX + 12, qrBoxY + 12, qrSize - 24, qrSize - 24);
+
+        // Footer Text
+        const footerY = qrBoxY + qrSize + 16;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `500 12px Inter, system-ui, -apple-system, sans-serif`;
+        ctx.fillText('Official Event QR Code • Scannable Pass', width / 2, footerY);
+
+        const finalDataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = finalDataUrl;
+        a.download = filename || `${titleText.toLowerCase().replace(/[^a-z0-9]/g, '-')}-qr.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        resolve(finalDataUrl);
+      } catch (err) {
+        console.error('Failed drawing header on QR canvas, falling back:', err);
+        fallbackDownload(qrImgSrc, filename);
+        reject(err);
+      }
+    };
+
+    img.onerror = (err) => {
+      console.error('Failed loading QR image for canvas header:', err);
+      fallbackDownload(qrImgSrc, filename);
+      reject(err);
+    };
+
+    img.src = dataUrl;
+  });
+}
+
+function fallbackDownload(url, filename) {
   const a = document.createElement('a');
-  a.href = dataUrl;
+  a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
 }
 
-export function downloadQRCode(dataUrl, filename = 'qr-code.png') {
-  downloadQRImage(dataUrl, filename);
+export function downloadQRImage(dataUrl, filename = 'qr-code.png', title = 'QR Code', subtitle = '') {
+  if (!dataUrl) return;
+  downloadQRWithHeader(dataUrl, title, subtitle, filename);
+}
+
+export function downloadQRCode(dataUrl, filename = 'qr-code.png', title = 'QR Code', subtitle = '') {
+  downloadQRWithHeader(dataUrl, title, subtitle, filename);
 }
 
 export function exportToExcelCSV(records = [], filename = 'Exported_Data.csv') {

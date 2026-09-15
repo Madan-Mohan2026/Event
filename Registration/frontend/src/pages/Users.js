@@ -4,6 +4,7 @@ import { renderHeader } from '../components/Header.js';
 import { API_BASE } from '../utils/constants.js';
 import { apiFetch } from '../services/api.js';
 import { getQRCode, regenerateQR } from '../services/qrService.js';
+import { downloadQRWithHeader } from '../utils/helpers.js';
 
 export async function renderUsers() {
   const app = document.getElementById('app');
@@ -644,12 +645,8 @@ export async function renderUsers() {
   // ── Download helper ───────────────────────────────────────────────────────────
   function downloadQRImage(qrDataUrl, adminName, eventTitle) {
     const safeName = `${adminName}-${eventTitle}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const a = document.createElement('a');
-    a.href = qrDataUrl;
-    a.download = `qr_${safeName}_${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const filename = `qr_${safeName}_${Date.now()}.png`;
+    downloadQRWithHeader(qrDataUrl, 'ADMIN QR CODE', `Admin: ${adminName} • Event: ${eventTitle}`, filename);
   }
 
   // Initial load
