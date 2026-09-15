@@ -4,6 +4,7 @@ import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { notifyEventCreated, notifyEventUpdated } from '../services/notificationService.js';
 import { showAlert } from '../utils/helpers.js';
+import { resolveImageUrl } from '../utils/eventHelpers.js';
 import { renderEventBasicInfoForm } from '../components/events/EventBasicInfoForm.js';
 import { renderEventClassificationForm } from '../components/events/EventClassificationForm.js';
 import { renderEventDateTimeForm } from '../components/events/EventDateTimeForm.js';
@@ -14,9 +15,8 @@ export async function renderCreateEventPage(state, eventId = null) {
   const app = document.getElementById('app');
   if (!app) return;
 
-  // Lock outer browser window scrollbar so only main-wrapper scrolls naturally
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
 
   let eventObj = null;
   if (eventId) {
@@ -95,14 +95,70 @@ export async function renderCreateEventPage(state, eventId = null) {
   let bannerImageDataUrl = isEdit ? (eventObj.bannerImage || eventObj.bannerImageUrl || eventObj.imagePath || '') : '';
   let agendaPdfDataUrl = isEdit ? (eventObj.agendaPdf || '') : '';
 
-  // Show existing filename if editing an event
-  if (isEdit && bannerImageDataUrl) {
-    const bannerLabel = document.getElementById('banner-file-name');
-    if (bannerLabel) {
-      const fileName = bannerImageDataUrl.startsWith('data:') ? 'Image selected' : bannerImageDataUrl.split('/').pop();
-      bannerLabel.textContent = `Current: ${fileName}`;
+  // Helper to update banner preview UI safely
+  const updateBannerPreviewUI = (dataUrl, file = null) => {
+    console.log('[DEBUG ATOMIC STEP 5.0]: Starting updateBannerPreviewUI. dataUrl length:', dataUrl ? dataUrl.length : 0);
+    try {
+      console.log('[DEBUG ATOMIC STEP 5.1]: Querying banner-file-name element...');
+      const labelEl = document.getElementById('banner-file-name');
+      console.log('[DEBUG ATOMIC STEP 5.2]: Querying banner-preview-container element...');
+      const previewContainer = document.getElementById('banner-preview-container');
+      console.log('[DEBUG ATOMIC STEP 5.3]: Querying banner-preview-img element...');
+      const previewImg = document.getElementById('banner-preview-img');
+      console.log('[DEBUG ATOMIC STEP 5.4]: Querying banner-preview-info element...');
+      const previewInfo = document.getElementById('banner-preview-info');
+
+      if (dataUrl) {
+        console.log('[DEBUG ATOMIC STEP 5.5]: Updating labelEl text...');
+        if (labelEl) labelEl.textContent = file ? file.name : (dataUrl.startsWith('data:') ? 'New image selected' : 'Current banner loaded');
+
+        console.log('[DEBUG ATOMIC STEP 5.6]: Showing previewContainer...');
+        if (previewContainer) previewContainer.style.display = 'block';
+
+        console.log('[DEBUG ATOMIC STEP 5.7]: Resolving image URL...');
+        let resolvedSrc = '';
+        try {
+          resolvedSrc = resolveImageUrl(dataUrl) || dataUrl;
+          console.log('[DEBUG ATOMIC STEP 5.8]: Resolved URL length:', resolvedSrc ? resolvedSrc.length : 0);
+        } catch (resErr) {
+          console.error('[DEBUG ATOMIC STEP 5.8 ERROR]: resolveImageUrl failed:', resErr);
+          resolvedSrc = dataUrl;
+        }
+
+        if (previewImg) {
+          console.log('[DEBUG ATOMIC STEP 5.9]: Setting previewImg.style.display to block...');
+          previewImg.style.display = 'block';
+          console.log('[DEBUG ATOMIC STEP 5.10]: Assigning previewImg.src...');
+          previewImg.src = resolvedSrc;
+          console.log('[DEBUG ATOMIC STEP 5.11]: previewImg.src assigned successfully!');
+        } else {
+          console.warn('[DEBUG ATOMIC STEP 5.9 WARN]: previewImg element NOT found in DOM!');
+        }
+
+        if (previewInfo) {
+          console.log('[DEBUG ATOMIC STEP 5.12]: Setting previewInfo text...');
+          previewInfo.textContent = file ? `${file.name} (${(file.size / 1024).toFixed(1)} KB)` : 'Current event banner image';
+        }
+      } else {
+        if (labelEl) labelEl.textContent = 'No file chosen';
+        if (previewContainer) previewContainer.style.display = 'none';
+        if (previewImg) {
+          previewImg.style.display = 'none';
+          previewImg.src = '';
+        }
+        if (previewInfo) previewInfo.textContent = '';
+      }
+      console.log('[DEBUG ATOMIC STEP 5.13]: updateBannerPreviewUI complete!');
+    } catch (err) {
+      console.error('❌ [DEBUG ATOMIC ERROR in updateBannerPreviewUI]:', err.stack || err.message || err);
     }
+  };
+
+  // Initialize preview state on render if existing banner exists
+  if (bannerImageDataUrl) {
+    updateBannerPreviewUI(bannerImageDataUrl);
   }
+
   if (isEdit && agendaPdfDataUrl) {
     const agendaLabel = document.getElementById('agenda-file-name');
     if (agendaLabel) {
@@ -146,31 +202,162 @@ export async function renderCreateEventPage(state, eventId = null) {
     });
   });
 
-  // Handle Banner file input display name & Base64 reader
-  document.getElementById('ev-banner-file')?.addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    const labelEl = document.getElementById('banner-file-name');
-    if (file) {
-      if (labelEl) labelEl.textContent = file.name;
-      const reader = new FileReader();
-      reader.onload = (evt) => { bannerImageDataUrl = evt.target.result; };
-      reader.readAsDataURL(file);
-    } else if (labelEl && !isEdit) {
-      labelEl.textContent = 'No file chosen';
+// Helper to resize and compress selected banner images to ~150KB JPEG
+function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    console.log('[DEBUG BANNER COMPRESS]: Starting FileReader for image compression...');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      console.log('[DEBUG BANNER COMPRESS]: FileReader loaded. Result length:', e.target.result?.length);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let width = img.width;
+          let height = img.height;
+          console.log('[DEBUG BANNER COMPRESS]: Image loaded in memory. Original size:', width, 'x', height);
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          console.log('[DEBUG BANNER COMPRESS]: Canvas compression complete. Compressed length:', dataUrl?.length);
+          resolve(dataUrl);
+        } catch (err) {
+          console.error('❌ [DEBUG BANNER COMPRESS ERROR]: Canvas error fallback to raw data URL:', err);
+          resolve(e.target.result); // Fallback to raw data URL if canvas fails
+        }
+      };
+      img.onerror = (err) => {
+        console.error('❌ [DEBUG BANNER COMPRESS ERROR]: Image element error fallback:', err);
+        resolve(e.target.result);
+      };
+      img.src = e.target.result;
+    };
+    reader.onerror = (err) => {
+      console.error('❌ [DEBUG BANNER COMPRESS ERROR]: FileReader error:', err);
+      reject(err);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+  // Button triggers for file pickers (avoids HTML label double-click issues)
+  document.getElementById('btn-trigger-banner-file')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('ev-banner-file')?.click();
+  });
+
+  document.getElementById('btn-trigger-agenda-file')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('ev-agenda-file')?.click();
+  });
+
+  // Handle Banner file input display name, validation, live preview & Base64 reader
+  document.getElementById('ev-banner-file')?.addEventListener('change', async (e) => {
+    console.log('📌 [DEBUG BANNER STEP 1]: ev-banner-file change event triggered!', e);
+    e.stopPropagation();
+    try {
+      const bannerInput = e.target;
+      const file = bannerInput.files && bannerInput.files[0];
+
+      console.log('📌 [DEBUG BANNER STEP 2]: File object:', file ? { name: file.name, type: file.type, size: file.size } : null);
+
+      if (!file) {
+        console.log('📌 [DEBUG BANNER STEP 2.1]: No file selected');
+        if (!bannerImageDataUrl) {
+          updateBannerPreviewUI('');
+        }
+        return;
+      }
+
+      // 1. File Type Validation (Must be an image)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/jpg'];
+      if (!file.type || (!file.type.startsWith('image/') && !allowedTypes.includes(file.type.toLowerCase()))) {
+        console.warn('⚠️ [DEBUG BANNER STEP 2.2]: Invalid file type:', file.type);
+        showAlert('Invalid file type! Please select an image file (JPEG, PNG, WEBP, GIF).', 'error');
+        bannerInput.value = '';
+        return;
+      }
+
+      // 2. File Size Validation (Max 10MB input limit before compression)
+      const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        console.warn('⚠️ [DEBUG BANNER STEP 2.3]: File size exceeds 10MB:', file.size);
+        showAlert(`Selected image (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds max limit of 10 MB. Please choose a smaller image.`, 'error');
+        bannerInput.value = '';
+        return;
+      }
+
+      console.log('📌 [DEBUG BANNER STEP 3]: Compressing image...');
+      // 3. Compress image for high performance & instant preview
+      const compressedDataUrl = await compressImage(file).catch((err) => {
+        console.error('❌ [DEBUG BANNER STEP 3 ERROR]: compressImage failed:', err);
+        return null;
+      });
+
+      console.log('📌 [DEBUG BANNER STEP 4]: Compression result present:', !!compressedDataUrl, 'Length:', compressedDataUrl?.length);
+
+      if (!compressedDataUrl) {
+        showAlert('Failed to process selected image file.', 'error');
+        bannerInput.value = '';
+        return;
+      }
+
+      bannerImageDataUrl = compressedDataUrl;
+      console.log('📌 [DEBUG BANNER STEP 4.5]: Updating preview UI with bannerImageDataUrl...');
+      updateBannerPreviewUI(bannerImageDataUrl, file);
+    } catch (changeErr) {
+      console.error('❌ [DEBUG BANNER STEP CATCH ERROR]: Unexpected error in banner change handler:', changeErr.stack || changeErr.message || changeErr);
+      showAlert('An error occurred while selecting banner image.', 'error');
+    }
+  });
+
+  // Handle Banner Removal button
+  document.getElementById('banner-remove-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      bannerImageDataUrl = '';
+      const bannerFileInput = document.getElementById('ev-banner-file');
+      if (bannerFileInput) bannerFileInput.value = '';
+      updateBannerPreviewUI('');
+      showAlert('Banner image removed.', 'info');
+    } catch (err) {
+      console.error('[CreateEventPage]: Error removing banner image:', err);
     }
   });
 
   // Handle Agenda file input display name & Base64 reader
   document.getElementById('ev-agenda-file')?.addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    const labelEl = document.getElementById('agenda-file-name');
-    if (file) {
-      if (labelEl) labelEl.textContent = file.name;
-      const reader = new FileReader();
-      reader.onload = (evt) => { agendaPdfDataUrl = evt.target.result; };
-      reader.readAsDataURL(file);
-    } else if (labelEl && !isEdit) {
-      labelEl.textContent = 'No file chosen';
+    try {
+      const file = e.target.files && e.target.files[0];
+      const labelEl = document.getElementById('agenda-file-name');
+      if (file) {
+        if (file.type !== 'application/pdf') {
+          showAlert('Invalid file type! Agenda must be a PDF file.', 'error');
+          e.target.value = '';
+          return;
+        }
+        if (labelEl) labelEl.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = (evt) => { agendaPdfDataUrl = evt.target.result; };
+        reader.readAsDataURL(file);
+      } else if (labelEl && !isEdit) {
+        labelEl.textContent = 'No file chosen';
+      }
+    } catch (err) {
+      console.error('[CreateEventPage]: Error handling agenda file change:', err);
     }
   });
 
@@ -178,88 +365,88 @@ export async function renderCreateEventPage(state, eventId = null) {
   document.getElementById('create-event-page-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const bannerFileInput = document.getElementById('ev-banner-file');
-    if (bannerFileInput && bannerFileInput.files && bannerFileInput.files[0] && !bannerImageDataUrl.startsWith('data:')) {
-      bannerImageDataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (evt) => resolve(evt.target?.result || '');
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(bannerFileInput.files[0]);
-      });
-    }
-
-    const agendaFileInput = document.getElementById('ev-agenda-file');
-    if (agendaFileInput && agendaFileInput.files && agendaFileInput.files[0] && !agendaPdfDataUrl.startsWith('data:')) {
-      agendaPdfDataUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (evt) => resolve(evt.target?.result || '');
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(agendaFileInput.files[0]);
-      });
-    }
-
-    const regStartDateTime = document.getElementById('ev-reg-start-datetime')?.value || '';
-    const regEndDateTime = document.getElementById('ev-reg-end-datetime')?.value || '';
-
-    if (regStartDateTime && regEndDateTime) {
-      const startObj = new Date(regStartDateTime);
-      const endObj = new Date(regEndDateTime);
-      if (startObj > endObj) {
-        showAlert('Registration Start Date & Time cannot be later than Registration End Date & Time.', 'error');
-        return;
-      }
-    }
-
-    let registrationStart = '';
-    let registrationStartTime = '';
-    if (regStartDateTime) {
-      const parts = regStartDateTime.split('T');
-      registrationStart = parts[0] || '';
-      registrationStartTime = parts[1] || '';
-    }
-
-    let registrationEnd = '';
-    let registrationEndTime = '';
-    if (regEndDateTime) {
-      const parts = regEndDateTime.split('T');
-      registrationEnd = parts[0] || '';
-      registrationEndTime = parts[1] || '';
-    }
-
-    const selectedCategoryVal = Array.from(document.querySelectorAll('.ev-pt-checkbox:checked')).map(el => el.value).join(', ') || document.getElementById('ev-category')?.value || 'Startups';
-
-    const payload = {
-      title: document.getElementById('ev-title').value.trim(),
-      summary: document.getElementById('ev-summary')?.value.trim() || '',
-      description: document.getElementById('ev-desc').value.trim(),
-      category: selectedCategoryVal,
-      participantType: selectedCategoryVal,
-      teamWide: document.getElementById('ev-teamwide')?.value || 'Innotribes',
-      organizerTeam: document.getElementById('ev-organizer-team')?.value || 'All Teams',
-      eventType: document.getElementById('ev-event-type')?.value || 'All Event Types',
-      organizerName: document.getElementById('ev-organizer-team')?.value || '',
-      capacity: parseInt(document.getElementById('ev-capacity')?.value, 10) || 500,
-      date: document.getElementById('ev-date')?.value || '',
-      time: document.getElementById('ev-time')?.value || '',
-      endDate: document.getElementById('ev-enddate')?.value || '',
-      endTime: document.getElementById('ev-endtime')?.value || '',
-      registrationStart,
-      registrationStartTime,
-      registrationDeadline: registrationEnd,
-      registrationEnd,
-      registrationEndTime,
-      timezone: document.getElementById('ev-timezone')?.value || 'Asia/Calcutta',
-      location: document.getElementById('ev-location')?.value.trim() || '',
-      speakerDetails: document.getElementById('ev-speaker')?.value.trim() || '',
-      assignedAdmin: document.getElementById('ev-assigned-admin')?.value || 'unassigned',
-      contactNumber: document.getElementById('ev-contact')?.value.trim() || '',
-      supportEmail: document.getElementById('ev-email')?.value.trim() || '',
-      bannerImage: bannerImageDataUrl,
-      agendaPdf: agendaPdfDataUrl,
-      status: isEdit ? eventObj.status : 'draft'
-    };
-
     try {
+      const bannerFileInput = document.getElementById('ev-banner-file');
+      if (bannerFileInput && bannerFileInput.files && bannerFileInput.files[0] && !bannerImageDataUrl.startsWith('data:')) {
+        bannerImageDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve(evt.target?.result || '');
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(bannerFileInput.files[0]);
+        });
+      }
+
+      const agendaFileInput = document.getElementById('ev-agenda-file');
+      if (agendaFileInput && agendaFileInput.files && agendaFileInput.files[0] && !agendaPdfDataUrl.startsWith('data:')) {
+        agendaPdfDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => resolve(evt.target?.result || '');
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(agendaFileInput.files[0]);
+        });
+      }
+
+      const regStartDateTime = document.getElementById('ev-reg-start-datetime')?.value || '';
+      const regEndDateTime = document.getElementById('ev-reg-end-datetime')?.value || '';
+
+      if (regStartDateTime && regEndDateTime) {
+        const startObj = new Date(regStartDateTime);
+        const endObj = new Date(regEndDateTime);
+        if (startObj > endObj) {
+          showAlert('Registration Start Date & Time cannot be later than Registration End Date & Time.', 'error');
+          return;
+        }
+      }
+
+      let registrationStart = '';
+      let registrationStartTime = '';
+      if (regStartDateTime) {
+        const parts = regStartDateTime.split('T');
+        registrationStart = parts[0] || '';
+        registrationStartTime = parts[1] || '';
+      }
+
+      let registrationEnd = '';
+      let registrationEndTime = '';
+      if (regEndDateTime) {
+        const parts = regEndDateTime.split('T');
+        registrationEnd = parts[0] || '';
+        registrationEndTime = parts[1] || '';
+      }
+
+      const selectedCategoryVal = Array.from(document.querySelectorAll('.ev-pt-checkbox:checked')).map(el => el.value).join(', ') || document.getElementById('ev-category')?.value || 'Startups';
+
+      const payload = {
+        title: document.getElementById('ev-title').value.trim(),
+        summary: document.getElementById('ev-summary')?.value.trim() || '',
+        description: document.getElementById('ev-desc').value.trim(),
+        category: selectedCategoryVal,
+        participantType: selectedCategoryVal,
+        teamWide: document.getElementById('ev-teamwide')?.value || 'Innotribes',
+        organizerTeam: document.getElementById('ev-organizer-team')?.value || 'All Teams',
+        eventType: document.getElementById('ev-event-type')?.value || 'All Event Types',
+        organizerName: document.getElementById('ev-organizer-team')?.value || '',
+        capacity: parseInt(document.getElementById('ev-capacity')?.value, 10) || 500,
+        date: document.getElementById('ev-date')?.value || '',
+        time: document.getElementById('ev-time')?.value || '',
+        endDate: document.getElementById('ev-enddate')?.value || '',
+        endTime: document.getElementById('ev-endtime')?.value || '',
+        registrationStart,
+        registrationStartTime,
+        registrationDeadline: registrationEnd,
+        registrationEnd,
+        registrationEndTime,
+        timezone: document.getElementById('ev-timezone')?.value || 'Asia/Calcutta',
+        location: document.getElementById('ev-location')?.value.trim() || '',
+        speakerDetails: document.getElementById('ev-speaker')?.value.trim() || '',
+        assignedAdmin: document.getElementById('ev-assigned-admin')?.value || 'unassigned',
+        contactNumber: document.getElementById('ev-contact')?.value.trim() || '',
+        supportEmail: document.getElementById('ev-email')?.value.trim() || '',
+        bannerImage: bannerImageDataUrl,
+        agendaPdf: agendaPdfDataUrl,
+        status: isEdit ? eventObj.status : 'draft'
+      };
+
       if (isEdit) {
         await updateEvent(eventObj._id, payload);
         notifyEventUpdated(payload.title);
@@ -271,7 +458,9 @@ export async function renderCreateEventPage(state, eventId = null) {
       }
       navigate('#events');
     } catch (err) {
-      showAlert('Failed to save event: ' + err.message, 'danger');
+      console.error('[CreateEventPage]: Error submitting event form:', err);
+      showAlert('Failed to save event: ' + (err.message || 'Unknown error'), 'danger');
     }
   });
 }
+

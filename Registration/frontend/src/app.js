@@ -28,6 +28,14 @@ export function triggerRealtimeSync(action, details = {}) {
 
 if (typeof window !== 'undefined') {
   window.triggerRealtimeSync = triggerRealtimeSync;
+
+  window.addEventListener('error', (event) => {
+    console.error('🚨 [GLOBAL UNCAUGHT ERROR]:', event.error || event.message, 'at', event.filename, ':', event.lineno);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('🚨 [GLOBAL UNHANDLED REJECTION]:', event.reason);
+  });
 }
 
 export function initRealtimeSync() {
@@ -44,6 +52,10 @@ export function initRealtimeSync() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'STATS_UPDATED') {
+            const currentHash = window.location.hash || '';
+            if (currentHash.startsWith('#create-event') || currentHash.startsWith('#edit-event')) {
+              return; // Protect active form input from being wiped by SSE re-renders
+            }
             handleRoute(state);
           }
         } catch (err) {}
