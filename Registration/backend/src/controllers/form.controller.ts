@@ -111,6 +111,13 @@ export const updateForm = async (req: AuthRequest, res: Response): Promise<void>
         formObj.fields = schemaToSave;
       }
       await formObj.save();
+
+      // Automatically sync updated form schema to all events assigned to this form
+      await Event.updateMany(
+        { assignedFormId: String(formObj._id) },
+        { $set: { formSchema: schemaToSave } }
+      );
+
       res.status(200).json(formObj);
       return;
     }
@@ -120,6 +127,13 @@ export const updateForm = async (req: AuthRequest, res: Response): Promise<void>
     if (evt) {
       if (schemaToSave) evt.formSchema = schemaToSave;
       await evt.save();
+
+      if (evt.assignedFormId) {
+        await Form.findByIdAndUpdate(evt.assignedFormId, {
+          $set: { formSchema: schemaToSave, fields: schemaToSave }
+        });
+      }
+
       res.status(200).json(evt);
       return;
     }

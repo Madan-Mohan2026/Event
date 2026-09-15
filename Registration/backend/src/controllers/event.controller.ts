@@ -210,6 +210,22 @@ export const getEventById = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    // Ensure event.formSchema is up-to-date with assigned Form template if linked
+    if (event.assignedFormId && String(event.assignedFormId).trim() !== '') {
+      try {
+        const formDoc = await Form.findById(event.assignedFormId).lean();
+        if (formDoc) {
+          const latestSchema = (formDoc.formSchema && formDoc.formSchema.length > 0) ? formDoc.formSchema : (formDoc.fields || []);
+          if (latestSchema && latestSchema.length > 0) {
+            event.formSchema = latestSchema as any;
+            await Event.updateOne({ _id: event._id }, { $set: { formSchema: latestSchema } });
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to sync formSchema from Form model:', e);
+      }
+    }
+
     await ensureEventQrCode(event);
 
     const evObj = event.toObject();
