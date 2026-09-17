@@ -12,6 +12,7 @@ import { clearDashboardCache } from './dashboard.controller';
 import { clearEventsCache } from './event.controller';
 import { normalizePhoneNumber } from '../utils/phoneHelpers';
 import { sendApprovalEmail, sendRejectionEmail, sendBulkCustomEmail } from '../services/email.service';
+import { getRegistrationStatus } from '../utils/eventStatus';
 
 // Helper to validate ObjectId strings
 const isValidObjectId = (id: any): boolean => {
@@ -176,20 +177,25 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Check dates
-    const now = new Date();
-    if (event.registrationStart && now < new Date(event.registrationStart)) {
-      res.status(400).json({ error: 'Registrations have not started yet.' });
-      return;
-    }
-    if (event.registrationEnd) {
-      const regEnd = new Date(event.registrationEnd);
-      regEnd.setHours(23, 59, 59, 999);
-      if (now > regEnd) {
-        res.status(400).json({ error: 'Registrations have closed.' });
+    // Check registration availability using centralized status logic
+    const regStatus = getRegistrationStatus(event);
+    if (!regStatus.isAllowed) {
+      if (regStatus.code === 'not_open') {
+        res.status(400).json({
+          error: `Registrations have not started yet. Registration opens on ${regStatus.formattedStart || 'the scheduled date'}.`,
+          code: 'REGISTRATION_NOT_OPEN',
+          registrationStatus: regStatus
+        });
         return;
       }
+      res.status(400).json({
+        error: `Registrations are closed for this event.`,
+        code: 'REGISTRATION_CLOSED',
+        registrationStatus: regStatus
+      });
+      return;
     }
+
 
     // Check capacity (only enforce if capacity is set and > 0)
     const registrationCount = await Registration.countDocuments({ eventId });

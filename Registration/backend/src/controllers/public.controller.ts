@@ -3,36 +3,7 @@ import path from 'path';
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { fetchS3BannersList, getS3ObjectStream } from '../services/s3Storage.service';
-
-/**
- * Computes public event status ('upcoming' | 'ongoing' | 'completed')
- * based on event date and endDate compared against current timestamp.
- */
-function computeEventStatus(date: Date, endDate?: Date): 'upcoming' | 'ongoing' | 'completed' {
-  if (!date || isNaN(new Date(date).getTime())) {
-    return 'upcoming';
-  }
-  const now = new Date();
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-
-  let end: Date;
-  if (endDate && !isNaN(new Date(endDate).getTime())) {
-    end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-  } else {
-    end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-    end.setHours(23, 59, 59, 999);
-  }
-
-  if (now < start) {
-    return 'upcoming';
-  } else if (now >= start && now <= end) {
-    return 'ongoing';
-  } else {
-    return 'completed';
-  }
-}
+import { getEventStatus, getRegistrationStatus, isRegistrationAllowed } from '../utils/eventStatus';
 
 /**
  * Returns a high quality category-matched default banner image URL
@@ -60,7 +31,8 @@ function getDefaultCategoryBanner(category?: string): string {
  * Fetches and resolves banner images directly from AWS S3 bucket.
  */
 function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = []) {
-  const computedStatus = computeEventStatus(ev.date, ev.endDate);
+  const computedStatus = getEventStatus(ev);
+  const regStatusConfig = getRegistrationStatus(ev);
 
   const startDateStr = new Date(ev.date).toLocaleDateString('en-US', {
     month: 'short',
@@ -77,21 +49,21 @@ function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = [
 
   const formattedDate = startDateStr === endDateStr ? startDateStr : `${startDateStr} - ${endDateStr}`;
 
-  const regStartDateStr = ev.registrationStart
+  const regStartDateStr = regStatusConfig.formattedStart || (ev.registrationStart
     ? new Date(ev.registrationStart).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric'
       })
-    : undefined;
+    : undefined);
 
-  const regEndDateStr = ev.registrationEnd
+  const regEndDateStr = regStatusConfig.formattedEnd || (ev.registrationEnd
     ? new Date(ev.registrationEnd).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric'
       })
-    : undefined;
+    : undefined);
 
   let speakers: any[] = [];
   if (Array.isArray(ev.agenda) && ev.agenda.length > 0) {
@@ -161,36 +133,45 @@ function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = [
       // Already an S3 URL — extract the key and proxy it
       const keyMatch = trimmed.match(/amazonaws\.com\/(.+)$/);
       if (keyMatch) {
-        bannerUrl = `${backendBase}/api/public/s3-banner/${keyMatch[1]}`;
+        bannerUrl = toProxyUrl({ key: keyMatch[1] });
       } else {
         bannerUrl = trimmed;
       }
-    } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    } else {
       bannerUrl = trimmed;
+    }
+  } else if (ev._id && s3Banners.length > 0) {
+    const evIdStr = String(ev._id);
+    const match = s3Banners.find(b => b.eventId === evIdStr || (b.key && b.key.includes(evIdStr)));
+    if (match) {
+      bannerUrl = toProxyUrl(match);
     }
   }
 
-  // If bannerUrl is still empty, find a matching S3 banner and proxy it
+  // If bannerUrl is empty, keep it empty (no default stock image)
   if (!bannerUrl) {
-    const idMatch = s3Banners.find(b => b.eventId === String(ev._id) || (b.key && b.key.includes(String(ev._id))));
-    if (idMatch) {
-      bannerUrl = toProxyUrl(idMatch);
-    } else {
-      bannerUrl = getDefaultCategoryBanner(ev.category);
-    }
+    bannerUrl = '';
   }
 
   return {
     id: String(ev._id),
     slug: ev.eventCode || `evt-${ev._id}`,
     title: ev.title,
-    shortDescription: ev.description ? ev.description.substring(0, 160) + (ev.description.length > 160 ? '...' : '') : '',
+    summary: ev.summary || '',
+    shortDescription: ev.summary || (ev.description ? ev.description.substring(0, 160) + (ev.description.length > 160 ? '...' : '') : ''),
     fullDescription: ev.description || '',
     bannerUrl,
     date: new Date(ev.date).toISOString().split('T')[0],
+    endDate: ev.endDate ? new Date(ev.endDate).toISOString().split('T')[0] : undefined,
     formattedDate,
+    registrationStart: ev.registrationStart,
+    registrationStartTime: ev.registrationStartTime,
+    registrationEnd: ev.registrationEnd || ev.registrationDeadline,
+    registrationEndTime: ev.registrationEndTime,
     registrationStartDate: regStartDateStr,
     registrationEndDate: regEndDateStr,
+    registrationStatus: regStatusConfig.code,
+    isRegistrationOpen: regStatusConfig.isAllowed,
     time: ev.time ? (ev.endTime ? `${ev.time} - ${ev.endTime}` : ev.time) : '09:00 AM - 05:00 PM',
     venue: ev.location || 'Main Convention Center',
     address: ev.location || 'Main Convention Center',

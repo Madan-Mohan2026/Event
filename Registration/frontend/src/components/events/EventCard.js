@@ -10,7 +10,8 @@ export function renderEventCard(event, availableForms = [], assignedFormMap = ne
   const isPublished = event.status === 'published';
   const hasFormAssigned = Boolean(event.assignedFormId && String(event.assignedFormId).trim() !== '');
   const dateFormatted = formatEventDate(event.date);
-  const descShort = truncateDescription(event.description, 100);
+  const summaryText = event.summary || event.description || '';
+  const descShort = truncateDescription(summaryText, 100);
   const eventId = event._id || '';
   const title = event.title || 'Untitled Event';
 
@@ -35,8 +36,8 @@ export function renderEventCard(event, availableForms = [], assignedFormMap = ne
           <span>${dateFormatted}</span>
         </div>
 
-        <!-- Description -->
-        <p class="event-card-desc-text" title="${event.description || ''}">${descShort}</p>
+        <!-- Summary -->
+        <p class="event-card-desc-text" title="${summaryText}">${descShort}</p>
 
         <!-- Assign Form Dropdown component -->
         ${renderAssignFormDropdown(event, availableForms, assignedFormMap, assignedFormIdsSet)}

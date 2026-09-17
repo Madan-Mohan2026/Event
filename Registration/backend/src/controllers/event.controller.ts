@@ -266,6 +266,7 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
   try {
     const {
       title,
+      summary,
       description,
       category,
       participantType,
@@ -292,6 +293,12 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
     if (!title || !String(title).trim()) {
       console.warn('⚠️ [createEvent VALIDATION FAILED]: Missing Title');
       res.status(400).json({ error: 'Event Title is required.' });
+      return;
+    }
+
+    if (!summary || !String(summary).trim()) {
+      console.warn('⚠️ [createEvent VALIDATION FAILED]: Missing Summary');
+      res.status(400).json({ error: 'Event Summary is required.' });
       return;
     }
 
@@ -356,6 +363,7 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
     const newEvent = new Event({
       eventCode: generatedEventCode,
       title: String(title).trim(),
+      summary: String(summary).trim(),
       description: description || '',
       category: category || 'General',
       participantType: participantType || 'Startups',
@@ -439,6 +447,7 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     const { id } = req.params;
     const {
       title,
+      summary,
       description,
       category,
       participantType,
@@ -469,6 +478,7 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     }
 
     if (title !== undefined) event.title = String(title).trim();
+    if (summary !== undefined) event.summary = String(summary).trim();
     if (description !== undefined) event.description = description;
     if (category !== undefined) event.category = category;
     if (participantType !== undefined) event.participantType = participantType;

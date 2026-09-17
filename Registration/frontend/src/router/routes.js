@@ -28,11 +28,13 @@ export async function handleRoute(state) {
       } catch {}
     }
 
-    // Public Event Registration Route
+    // Public Event Registration Route (#register/:eventId or #register/:eventId/form)
     if (baseHash.startsWith('#register/')) {
-      const eventId = baseHash.split('/')[1];
+      const parts = baseHash.split('/');
+      const eventId = parts[1];
+      const step = parts[2] || '';
       const { renderPublicRegistrationPage } = await loadRouteModule(() => import('../components/forms/PublicRegistration.js'));
-      return renderPublicRegistrationPage(eventId);
+      return renderPublicRegistrationPage(eventId, step);
     }
 
     // Public & Auth Routes

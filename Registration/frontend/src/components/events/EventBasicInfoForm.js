@@ -10,8 +10,8 @@ export function renderEventBasicInfoForm(isEdit, eventObj) {
       </div>
 
       <div class="form-group-custom">
-        <label class="form-label-custom">Summary — <span class="label-subtext">Short description shown on event cards</span></label>
-        <input type="text" id="ev-summary" class="form-control-custom" value="${isEdit ? (eventObj.summary || '') : ''}" placeholder="A brief one-liner for your event" />
+        <label class="form-label-custom">Summary <span class="required-star">*</span> — <span class="label-subtext">Short description shown on event cards</span></label>
+        <input type="text" id="ev-summary" class="form-control-custom" value="${isEdit ? (eventObj.summary || '') : ''}" placeholder="A brief one-liner for your event" required />
       </div>
 
       <div class="form-group-custom">

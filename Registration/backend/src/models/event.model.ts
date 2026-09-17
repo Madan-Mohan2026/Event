@@ -22,6 +22,7 @@ export interface ISession {
 export interface IEvent extends Document {
   eventCode: string;
   title: string;
+  summary?: string;
   description: string;
   category: string;
   participantType?: string; // Startups, MSMEs, Students, VDP
@@ -87,6 +88,7 @@ const eventSchema = new Schema<IEvent>(
   {
     eventCode: { type: String, default: '' },
     title: { type: String, required: true, trim: true },
+    summary: { type: String, default: '', trim: true },
     description: { type: String, default: '' },
     category: { type: String, default: 'General' },
     participantType: { type: String, default: 'Startups' },

@@ -416,10 +416,30 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
 
       const selectedCategoryVal = Array.from(document.querySelectorAll('.ev-pt-checkbox:checked')).map(el => el.value).join(', ') || document.getElementById('ev-category')?.value || 'Startups';
 
+      const titleVal = document.getElementById('ev-title')?.value.trim() || '';
+      const summaryVal = document.getElementById('ev-summary')?.value.trim() || '';
+      const descVal = document.getElementById('ev-desc')?.value.trim() || '';
+
+      if (!titleVal) {
+        showAlert('Event Title is required.', 'danger');
+        document.getElementById('ev-title')?.focus();
+        return;
+      }
+      if (!summaryVal) {
+        showAlert('Event Summary is required.', 'danger');
+        document.getElementById('ev-summary')?.focus();
+        return;
+      }
+      if (!descVal) {
+        showAlert('Event Description is required.', 'danger');
+        document.getElementById('ev-desc')?.focus();
+        return;
+      }
+
       const payload = {
-        title: document.getElementById('ev-title').value.trim(),
-        summary: document.getElementById('ev-summary')?.value.trim() || '',
-        description: document.getElementById('ev-desc').value.trim(),
+        title: titleVal,
+        summary: summaryVal,
+        description: descVal,
         category: selectedCategoryVal,
         participantType: selectedCategoryVal,
         teamWide: document.getElementById('ev-teamwide')?.value || 'Innotribes',
