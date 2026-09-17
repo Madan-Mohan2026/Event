@@ -45,6 +45,11 @@ export interface IRegistration extends Document {
   category: string;
   formId?: string;
   status?: string;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvedAt?: Date;
+  approvedBy?: string;
+  rejectedAt?: Date;
+  rejectedBy?: string;
   participant?: {
     fullName?: string;
     email?: string;
@@ -66,6 +71,11 @@ const registrationSchema = new Schema<IRegistration>(
     eventId: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
     formData: { type: Schema.Types.Map, of: Schema.Types.Mixed, required: true },
     registeredAt: { type: Date, default: Date.now },
+    approvalStatus: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
+    approvedAt: { type: Date },
+    approvedBy: { type: String, default: '' },
+    rejectedAt: { type: Date },
+    rejectedBy: { type: String, default: '' },
     attended: { type: Boolean, default: false },
     attendedAt: { type: Date },
     attendedDate: { type: String, default: '' },
@@ -118,6 +128,7 @@ registrationSchema.index({ registrationId: 1 });
 registrationSchema.index({ participantPhone: 1 });
 registrationSchema.index({ participantEmail: 1 });
 registrationSchema.index({ status: 1 });
+registrationSchema.index({ approvalStatus: 1 });
 registrationSchema.index({ attended: 1 });
 registrationSchema.index({ kitIssued: 1 });
 registrationSchema.index({ foodRedeemed: 1 });
@@ -127,6 +138,8 @@ registrationSchema.index({ foodQrToken: 1 });
 registrationSchema.index({ category: 1 });
 registrationSchema.index({ registeredAt: -1 });
 registrationSchema.index({ eventId: 1, status: 1 });
+registrationSchema.index({ eventId: 1, approvalStatus: 1 });
+registrationSchema.index({ eventId: 1, approvalStatus: 1, registeredAt: 1, _id: 1 });
 registrationSchema.index({ eventId: 1, registeredAt: -1 });
 registrationSchema.index({ eventId: 1, participantPhone: 1 });
 registrationSchema.index(

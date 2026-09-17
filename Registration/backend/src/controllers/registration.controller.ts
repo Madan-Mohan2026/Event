@@ -11,6 +11,7 @@ import { recordEventAction } from '../services/eventLog.service';
 import { clearDashboardCache } from './dashboard.controller';
 import { clearEventsCache } from './event.controller';
 import { normalizePhoneNumber } from '../utils/phoneHelpers';
+import { sendApprovalEmail, sendRejectionEmail, sendBulkCustomEmail } from '../services/email.service';
 
 // Helper to validate ObjectId strings
 const isValidObjectId = (id: any): boolean => {
@@ -357,7 +358,7 @@ export const registerForEvent = async (req: Request, res: Response): Promise<voi
 // Get all registrations across events (Admin only)
 export const getAllRegistrations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { eventId, category, attendance, view, search, page, limit } = req.query;
+    const { eventId, category, attendance, approvalStatus, view, search, page, limit } = req.query;
     const filter: any = {};
 
     const isSuperAdmin = !req.user || req.user.role === 'super_admin' || (req.user.role as any) === 'superadmin';
@@ -383,6 +384,19 @@ export const getAllRegistrations = async (req: AuthRequest, res: Response): Prom
       if (attendance === 'absent') filter.attended = false;
     }
 
+    if (approvalStatus && approvalStatus !== 'all') {
+      const appStatus = String(approvalStatus).toUpperCase();
+      if (appStatus === 'PENDING') {
+        filter.$or = [
+          { approvalStatus: 'PENDING' },
+          { approvalStatus: { $exists: false } },
+          { approvalStatus: null }
+        ];
+      } else {
+        filter.approvalStatus = appStatus;
+      }
+    }
+
     if (search && String(search).trim()) {
       const s = String(search).trim();
       const searchRegex = new RegExp(s, 'i');
@@ -399,25 +413,31 @@ export const getAllRegistrations = async (req: AuthRequest, res: Response): Prom
 
     if (isListView) {
       query = query.select(
-        '_id registrationId participantName participantEmail participantPhone eventId eventTitle attended kitIssued foodRedeemed couponIssued status registeredAt category spotRegistration'
+        '_id registrationId participantName participantEmail participantPhone eventId eventTitle attended kitIssued foodRedeemed couponIssued status approvalStatus approvedAt approvedBy rejectedAt rejectedBy registeredAt category spotRegistration'
       );
     } else {
       query = query.select('-kitQrCodeDataUrl -foodQrCodeDataUrl');
     }
 
-    query = query.populate({ path: 'eventId', select: 'title category capacity' }).sort({ registeredAt: -1, createdAt: -1 });
+    // Default sort: FCFS order (registeredAt ASC, _id ASC)
+    query = query.populate({ path: 'eventId', select: 'title category capacity' }).sort({ registeredAt: 1, _id: 1 });
 
     const pageNum = Number(page);
-    const limitNum = Number(limit) || 20;
+    const limitNum = Number(limit) || 50;
 
     if (pageNum && pageNum > 0) {
       query = query.skip((pageNum - 1) * limitNum).limit(limitNum);
     }
 
-    const [registrations, totalRegistrations] = await Promise.all([
+    const [rawRegistrations, totalRegistrations] = await Promise.all([
       query.lean(),
       Registration.countDocuments(filter)
     ]);
+
+    const registrations = rawRegistrations.map((r: any) => ({
+      ...r,
+      approvalStatus: r.approvalStatus || 'PENDING'
+    }));
 
     res.status(200).json({
       totalRegistrations,
@@ -432,11 +452,11 @@ export const getAllRegistrations = async (req: AuthRequest, res: Response): Prom
   }
 };
 
-// Get registrations for an event (Admin only)
+// Get registrations for a specific event (Admin only) with FCFS position & Phase 2 metrics
 export const getRegistrations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { eventId } = req.params;
-    const { view, page, limit, search } = req.query;
+    const { view, page, limit, search, approvalStatus } = req.query;
 
     if (!eventId || eventId === 'all' || eventId === 'null' || eventId === 'undefined' || !isValidObjectId(eventId)) {
       return getAllRegistrations(req, res);
@@ -452,7 +472,50 @@ export const getRegistrations = async (req: AuthRequest, res: Response): Promise
       }
     }
 
+    // 1. Fetch Event Document & Calculate Summary Statistics
+    const [event, totalRegistrations, approvedCount, rejectedCount] = await Promise.all([
+      Event.findById(eventId).select('-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema -agenda').lean(),
+      Registration.countDocuments({ eventId }),
+      Registration.countDocuments({ eventId, approvalStatus: 'APPROVED' }),
+      Registration.countDocuments({ eventId, approvalStatus: 'REJECTED' })
+    ]);
+
+    if (!event) {
+      res.status(404).json({ error: 'Event not found.' });
+      return;
+    }
+
+    const pendingCount = Math.max(0, totalRegistrations - approvedCount - rejectedCount);
+    const capacity = Number(event.capacity || 0);
+    const remainingSlots = capacity > 0 ? Math.max(0, capacity - approvedCount) : 'Unlimited';
+
+    // 2. Fetch full event queue in immutable FCFS order to compute exact queue positions
+    const allRegsInFcfsOrder = await Registration.find({ eventId })
+      .select('_id registeredAt')
+      .sort({ registeredAt: 1, _id: 1 })
+      .lean();
+
+    const fcfsPositionMap = new Map<string, number>();
+    allRegsInFcfsOrder.forEach((r, idx) => {
+      fcfsPositionMap.set(String(r._id), idx + 1);
+    });
+
+    // 3. Build Filter for Active Query
     const filter: any = { eventId };
+
+    if (approvalStatus && approvalStatus !== 'all') {
+      const appStatus = String(approvalStatus).toUpperCase();
+      if (appStatus === 'PENDING') {
+        filter.$or = [
+          { approvalStatus: 'PENDING' },
+          { approvalStatus: { $exists: false } },
+          { approvalStatus: null }
+        ];
+      } else {
+        filter.approvalStatus = appStatus;
+      }
+    }
+
     if (search && String(search).trim()) {
       const s = String(search).trim();
       const searchRegex = new RegExp(s, 'i');
@@ -469,35 +532,215 @@ export const getRegistrations = async (req: AuthRequest, res: Response): Promise
 
     if (isListView) {
       query = query.select(
-        '_id registrationId participantName participantEmail participantPhone eventId eventTitle attended kitIssued foodRedeemed couponIssued status registeredAt category spotRegistration'
+        '_id registrationId participantName participantEmail participantPhone eventId eventTitle attended kitIssued foodRedeemed couponIssued status approvalStatus approvedAt approvedBy rejectedAt rejectedBy registeredAt category spotRegistration'
       );
     } else {
       query = query.select('-kitQrCodeDataUrl -foodQrCodeDataUrl');
     }
 
-    query = query.sort({ registeredAt: -1 });
+    // Default sort: FCFS order (registeredAt ASC, _id ASC)
+    query = query.sort({ registeredAt: 1, _id: 1 });
 
     const pageNum = Number(page);
-    const limitNum = Number(limit) || 20;
+    const limitNum = Number(limit) || 1000;
 
     if (pageNum && pageNum > 0) {
       query = query.skip((pageNum - 1) * limitNum).limit(limitNum);
     }
 
-    const [event, registrations] = await Promise.all([
-      Event.findById(eventId).select('-checkinQrCodeDataUrl -kitQrCodeDataUrl -foodQrCodeDataUrl -formSchema -agenda').lean(),
-      query.lean()
-    ]);
+    const rawRegistrations = await query.lean();
 
-    if (!event) {
-      res.status(404).json({ error: 'Event not found.' });
-      return;
-    }
+    // Attach immutable FCFS queue position and default approvalStatus
+    const registrations = rawRegistrations.map((r: any) => ({
+      ...r,
+      approvalStatus: r.approvalStatus || 'PENDING',
+      fcfsPosition: fcfsPositionMap.get(String(r._id)) || 1
+    }));
 
-    res.status(200).json({ event, registrations });
+    res.status(200).json({
+      event,
+      summary: {
+        capacity,
+        totalRegistrations,
+        approvedCount,
+        pendingCount,
+        rejectedCount,
+        remainingSlots
+      },
+      registrations
+    });
   } catch (error: any) {
     console.error('[registration]: Error in getRegistrations:', error.message);
     res.status(500).json({ error: error.message || 'Failed to retrieve registrations.' });
+  }
+};
+
+// Approve participant registration (Admin only)
+export const approveParticipant = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ error: 'Invalid registration ID.' });
+      return;
+    }
+
+    const registration = await Registration.findById(id);
+    if (!registration) {
+      res.status(404).json({ error: 'Registration not found.' });
+      return;
+    }
+
+    if (registration.approvalStatus === 'APPROVED') {
+      res.status(400).json({ error: 'Participant is already approved.' });
+      return;
+    }
+
+    const event = await Event.findById(registration.eventId);
+    if (!event) {
+      res.status(404).json({ error: 'Associated event not found.' });
+      return;
+    }
+
+    // Server-side Capacity Guard
+    const maxCapacity = Number(event.capacity || 0);
+    if (maxCapacity > 0) {
+      const currentApprovedCount = await Registration.countDocuments({
+        eventId: registration.eventId,
+        approvalStatus: 'APPROVED'
+      });
+
+      if (currentApprovedCount >= maxCapacity) {
+        res.status(400).json({
+          error: `Event capacity limit (${maxCapacity}) has been reached. Cannot approve more participants.`,
+          code: 'CAPACITY_REACHED',
+          capacity: maxCapacity,
+          approvedCount: currentApprovedCount
+        });
+        return;
+      }
+    }
+
+    const adminUsername = req.user?.username || 'Admin';
+    const now = new Date();
+
+    registration.approvalStatus = 'APPROVED';
+    registration.approvedAt = now;
+    registration.approvedBy = adminUsername;
+
+    await registration.save();
+
+    // Send Approval Email asynchronously
+    sendApprovalEmail(
+      {
+        participantName: registration.participantName,
+        participantEmail: registration.participantEmail,
+        registrationId: registration.registrationId || String(registration._id)
+      },
+      {
+        title: event.title,
+        date: event.date,
+        location: event.location,
+        supportEmail: event.supportEmail
+      }
+    ).catch(err => console.error('[EMAIL ERROR]: Failed in async approval email:', err));
+
+    if (req.user) {
+      await logAdminAction(
+        req.user.id,
+        req.user.username,
+        'APPROVE_PARTICIPANT',
+        { registrationId: id, participantName: registration.participantName, eventId: event._id, eventTitle: event.title },
+        req.ip || 'unknown'
+      );
+    }
+
+    clearDashboardCache();
+    clearEventsCache();
+    broadcastRealtimeEvent('STATS_UPDATED', { action: 'PARTICIPANT_APPROVED', eventId: event._id, registrationId: id });
+
+    res.status(200).json({
+      success: true,
+      message: `Participant ${registration.participantName} approved successfully.`,
+      registration
+    });
+  } catch (error: any) {
+    console.error('[registration]: Error in approveParticipant:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to approve participant.' });
+  }
+};
+
+// Reject participant registration (Admin only)
+export const rejectParticipant = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ error: 'Invalid registration ID.' });
+      return;
+    }
+
+    const registration = await Registration.findById(id);
+    if (!registration) {
+      res.status(404).json({ error: 'Registration not found.' });
+      return;
+    }
+
+    if (registration.approvalStatus === 'REJECTED') {
+      res.status(400).json({ error: 'Participant is already rejected.' });
+      return;
+    }
+
+    const event = await Event.findById(registration.eventId);
+
+    const adminUsername = req.user?.username || 'Admin';
+    const now = new Date();
+
+    registration.approvalStatus = 'REJECTED';
+    registration.rejectedAt = now;
+    registration.rejectedBy = adminUsername;
+
+    await registration.save();
+
+    // Send Rejection Email asynchronously
+    if (event) {
+      sendRejectionEmail(
+        {
+          participantName: registration.participantName,
+          participantEmail: registration.participantEmail,
+          registrationId: registration.registrationId || String(registration._id)
+        },
+        {
+          title: event.title,
+          date: event.date,
+          location: event.location,
+          supportEmail: event.supportEmail
+        }
+      ).catch(err => console.error('[EMAIL ERROR]: Failed in async rejection email:', err));
+    }
+
+    if (req.user) {
+      await logAdminAction(
+        req.user.id,
+        req.user.username,
+        'REJECT_PARTICIPANT',
+        { registrationId: id, participantName: registration.participantName, eventId: registration.eventId },
+        req.ip || 'unknown'
+      );
+    }
+
+    clearDashboardCache();
+    clearEventsCache();
+    broadcastRealtimeEvent('STATS_UPDATED', { action: 'PARTICIPANT_REJECTED', eventId: registration.eventId, registrationId: id });
+
+    res.status(200).json({
+      success: true,
+      message: `Participant ${registration.participantName} registration rejected.`,
+      registration
+    });
+  } catch (error: any) {
+    console.error('[registration]: Error in rejectParticipant:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to reject participant.' });
   }
 };
 
@@ -813,6 +1056,20 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
       return;
     }
 
+    // Phase 2 Operational Guard: Restrict check-in to APPROVED participants only
+    if (matchedRegistration.approvalStatus && matchedRegistration.approvalStatus !== 'APPROVED') {
+      const errDetail = matchedRegistration.approvalStatus === 'PENDING'
+        ? 'Your registration is PENDING approval by the event administrator.'
+        : 'Your registration was NOT APPROVED for this event.';
+      res.status(400).json({
+        exists: true,
+        error: `Check-in Failed: ${errDetail}`,
+        code: 'NOT_APPROVED',
+        approvalStatus: matchedRegistration.approvalStatus
+      });
+      return;
+    }
+
     // Extract participant details
     const extractedDetails = extractParticipantDetailsFromFormData(matchedRegistration.formData);
     if (!matchedRegistration.participantPhone && extractedDetails.participantPhone) {
@@ -1023,6 +1280,19 @@ export const markSelfAttendance = async (req: Request, res: Response): Promise<v
         details: `Registration record not found for ID: ${registrationId}`
       });
       res.status(404).json({ error: 'Registration record not found.' });
+      return;
+    }
+
+    // Phase 2 Operational Guard: Restrict check-in to APPROVED participants only
+    if (registration.approvalStatus && registration.approvalStatus !== 'APPROVED') {
+      const errDetail = registration.approvalStatus === 'PENDING'
+        ? 'Your registration is PENDING approval by the event administrator.'
+        : 'Your registration was NOT APPROVED for this event.';
+      res.status(400).json({
+        error: `Attendance Failed: ${errDetail}`,
+        code: 'NOT_APPROVED',
+        approvalStatus: registration.approvalStatus
+      });
       return;
     }
 
@@ -1283,6 +1553,9 @@ export const registerSpotParticipant = async (req: Request, res: Response): Prom
       participantPhoneNormalized: normPhone,
       formData: sanitizedData,
       registeredAt: now,
+      approvalStatus: 'APPROVED',
+      approvedAt: now,
+      approvedBy: 'Spot Registration / Walk-in',
       attended: true,
       attendedAt: now,
       attendedDate,
@@ -1417,6 +1690,15 @@ export const verifyKitQr = async (req: Request, res: Response): Promise<void> =>
         details: `Invalid or unrecognized Kit QR Code token: "${cleanToken}"`
       });
       res.status(404).json({ error: 'Invalid or unrecognized Kit QR Code.' });
+      return;
+    }
+
+    if (registration.approvalStatus && registration.approvalStatus !== 'APPROVED') {
+      res.status(400).json({
+        success: false,
+        error: 'Kit Collection Blocked: Participant registration is not approved.',
+        message: 'Kit distribution is restricted to approved participants.'
+      });
       return;
     }
 
@@ -1643,6 +1925,15 @@ export const verifyFoodQr = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    if (registration.approvalStatus && registration.approvalStatus !== 'APPROVED') {
+      res.status(400).json({
+        success: false,
+        error: 'Food Redemption Blocked: Participant registration is not approved.',
+        message: 'Food coupon redemption is restricted to approved participants.'
+      });
+      return;
+    }
+
     const regData = registration.formData instanceof Map 
       ? Object.fromEntries(registration.formData) 
       : (registration.formData || {});
@@ -1741,6 +2032,14 @@ export const redeemFoodCoupon = async (req: Request, res: Response): Promise<voi
         details: `Registration record not found for ID: ${registrationId}`
       });
       res.status(404).json({ error: 'Registration record not found.' });
+      return;
+    }
+
+    if (registration.approvalStatus && registration.approvalStatus !== 'APPROVED') {
+      res.status(400).json({
+        success: false,
+        error: 'Food Redemption Blocked: Participant registration is not approved.'
+      });
       return;
     }
 
@@ -1906,6 +2205,14 @@ export const scanKit = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (registration.approvalStatus && registration.approvalStatus !== 'APPROVED') {
+      res.status(400).json({
+        error: 'Kit Collection Blocked: Participant registration is not approved.',
+        status: 'NOT_APPROVED'
+      });
+      return;
+    }
+
     console.log('[DEBUG QR SCAN]: Registration Found:', registration._id);
 
     const shortRegId = registration.registrationId || `#REG-${String(registration._id).substring(18).toUpperCase()}`;
@@ -2064,6 +2371,14 @@ export const scanFood = async (req: Request, res: Response): Promise<void> => {
         details: `Food QR scan failed. Registration not found for token: ${cleanToken}`
       });
       res.status(404).json({ error: 'Registration Not Found / Invalid QR', status: 'NOT_FOUND' });
+      return;
+    }
+
+    if (registration.approvalStatus && registration.approvalStatus !== 'APPROVED') {
+      res.status(400).json({
+        error: 'Food Coupon Blocked: Participant registration is not approved.',
+        status: 'NOT_APPROVED'
+      });
       return;
     }
 
@@ -2346,9 +2661,12 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
         registeredAt: registration.registeredAt,
         registeredAtFormatted,
         
-        // Registration Status
+        // Registration & Approval Status
         isRegistered: true,
         registrationStatusText: 'Registered',
+        approvalStatus: registration.approvalStatus || 'PENDING',
+        approvedAt: registration.approvedAt,
+        approvedBy: registration.approvedBy,
 
         // Attendance Status
         attended: !!registration.attended,
@@ -2692,6 +3010,320 @@ export const manualMarkAttendance = async (req: AuthRequest, res: Response): Pro
     res.status(500).json({ error: err.message || 'Error marking attendance manually.' });
   }
 };
+
+/**
+ * Bulk approve selected participants for an event
+ * Body: { registrationIds: string[] }
+ */
+export const bulkApproveParticipants = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { registrationIds } = req.body;
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      res.status(400).json({ error: 'registrationIds array is required and cannot be empty.' });
+      return;
+    }
+
+    const adminUser = req.user;
+    if (!adminUser) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    // Retrieve all targeted registrations
+    const registrations = await Registration.find({ _id: { $in: registrationIds } });
+    if (registrations.length === 0) {
+      res.status(404).json({ error: 'No matching registrations found.' });
+      return;
+    }
+
+    // Determine eventId
+    const eventIds = Array.from(new Set(registrations.map(r => String(r.eventId))));
+    if (eventIds.length > 1) {
+      res.status(400).json({ error: 'All selected registrations must belong to the same event.' });
+      return;
+    }
+
+    const eventId = eventIds[0];
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404).json({ error: 'Associated event not found.' });
+      return;
+    }
+
+    // Count currently approved participants for this event
+    const currentApprovedCount = await Registration.countDocuments({ eventId, approvalStatus: 'APPROVED' });
+    const pendingToApprove = registrations.filter(r => r.approvalStatus !== 'APPROVED');
+
+    const totalAfterApproval = currentApprovedCount + pendingToApprove.length;
+    if (event.capacity && totalAfterApproval > event.capacity) {
+      const availableSlots = Math.max(0, event.capacity - currentApprovedCount);
+      res.status(400).json({
+        error: `Cannot approve ${pendingToApprove.length} participant(s). Event capacity is ${event.capacity}, currently approved: ${currentApprovedCount}. Only ${availableSlots} slot(s) available.`,
+        capacity: event.capacity,
+        currentApprovedCount,
+        availableSlots,
+        requestedCount: pendingToApprove.length
+      });
+      return;
+    }
+
+    const now = new Date();
+    const adminUsername = adminUser.username || 'Admin';
+
+    let newlyApprovedCount = 0;
+    const approvalResults: Array<{ id: string; name: string; email: string; emailSent: boolean }> = [];
+
+    for (const reg of registrations) {
+      if (reg.approvalStatus !== 'APPROVED') {
+        reg.approvalStatus = 'APPROVED';
+        reg.approvedAt = now;
+        reg.approvedBy = adminUsername;
+        await reg.save();
+        newlyApprovedCount++;
+
+        // Send notification email asynchronously
+        let emailSent = false;
+        if (reg.participantEmail) {
+          try {
+            await sendApprovalEmail(
+              {
+                participantName: reg.participantName || 'Participant',
+                participantEmail: reg.participantEmail,
+                registrationId: reg.registrationId || String(reg._id)
+              },
+              {
+                title: event.title,
+                date: event.date,
+                location: event.location
+              }
+            );
+            emailSent = true;
+          } catch (err: any) {
+            console.error(`Failed to send approval email to ${reg.participantEmail}:`, err.message);
+          }
+        }
+
+        approvalResults.push({
+          id: String(reg._id),
+          name: reg.participantName || '',
+          email: reg.participantEmail || '',
+          emailSent
+        });
+      }
+    }
+
+    await logAdminAction(
+      adminUser.id,
+      adminUsername,
+      'BULK_PARTICIPANTS_APPROVED',
+      `Approved ${newlyApprovedCount} participant(s) for event '${event.title}' (${eventId}).`,
+      req.ip || 'unknown'
+    );
+
+    broadcastRealtimeEvent('REGISTRATIONS_UPDATED', { action: 'BULK_APPROVE', eventId });
+    clearDashboardCache();
+
+    const updatedApprovedCount = await Registration.countDocuments({ eventId, approvalStatus: 'APPROVED' });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully approved ${newlyApprovedCount} participant(s).`,
+      approvedCount: newlyApprovedCount,
+      totalApprovedForEvent: updatedApprovedCount,
+      eventCapacity: event.capacity,
+      remainingSlots: Math.max(0, (event.capacity || 0) - updatedApprovedCount),
+      results: approvalResults
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error bulk approving participants.' });
+  }
+};
+
+/**
+ * Bulk reject selected participants for an event
+ * Body: { registrationIds: string[] }
+ */
+export const bulkRejectParticipants = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { registrationIds } = req.body;
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      res.status(400).json({ error: 'registrationIds array is required and cannot be empty.' });
+      return;
+    }
+
+    const adminUser = req.user;
+    if (!adminUser) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const registrations = await Registration.find({ _id: { $in: registrationIds } });
+    if (registrations.length === 0) {
+      res.status(404).json({ error: 'No matching registrations found.' });
+      return;
+    }
+
+    const eventIds = Array.from(new Set(registrations.map(r => String(r.eventId))));
+    if (eventIds.length > 1) {
+      res.status(400).json({ error: 'All selected registrations must belong to the same event.' });
+      return;
+    }
+
+    const eventId = eventIds[0];
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404).json({ error: 'Associated event not found.' });
+      return;
+    }
+
+    const now = new Date();
+    const adminUsername = adminUser.username || 'Admin';
+
+    let newlyRejectedCount = 0;
+    const rejectionResults: Array<{ id: string; name: string; email: string; emailSent: boolean }> = [];
+
+    for (const reg of registrations) {
+      if (reg.approvalStatus !== 'REJECTED') {
+        reg.approvalStatus = 'REJECTED';
+        reg.rejectedAt = now;
+        reg.rejectedBy = adminUsername;
+        await reg.save();
+        newlyRejectedCount++;
+
+        // Send notification email asynchronously
+        let emailSent = false;
+        if (reg.participantEmail) {
+          try {
+            await sendRejectionEmail(
+              {
+                participantName: reg.participantName || 'Participant',
+                participantEmail: reg.participantEmail,
+                registrationId: reg.registrationId || String(reg._id)
+              },
+              {
+                title: event.title
+              }
+            );
+            emailSent = true;
+          } catch (err: any) {
+            console.error(`Failed to send rejection email to ${reg.participantEmail}:`, err.message);
+          }
+        }
+
+        rejectionResults.push({
+          id: String(reg._id),
+          name: reg.participantName || '',
+          email: reg.participantEmail || '',
+          emailSent
+        });
+      }
+    }
+
+    await logAdminAction(
+      adminUser.id,
+      adminUsername,
+      'BULK_PARTICIPANTS_REJECTED',
+      `Rejected ${newlyRejectedCount} participant(s) for event '${event.title}' (${eventId}).`,
+      req.ip || 'unknown'
+    );
+
+    broadcastRealtimeEvent('REGISTRATIONS_UPDATED', { action: 'BULK_REJECT', eventId });
+    clearDashboardCache();
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully rejected ${newlyRejectedCount} participant(s).`,
+      rejectedCount: newlyRejectedCount,
+      results: rejectionResults
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error bulk rejecting participants.' });
+  }
+};
+
+/**
+ * Send custom bulk emails to selected registrations
+ * Body: { registrationIds: string[], subject: string, bodyText: string }
+ */
+export const sendBulkEmailController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { registrationIds, subject, bodyText } = req.body;
+
+    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+      res.status(400).json({ error: 'registrationIds array is required and cannot be empty.' });
+      return;
+    }
+
+    if (!subject || !subject.trim()) {
+      res.status(400).json({ error: 'Email subject is required.' });
+      return;
+    }
+
+    if (!bodyText || !bodyText.trim()) {
+      res.status(400).json({ error: 'Email body text is required.' });
+      return;
+    }
+
+    const adminUser = req.user;
+    if (!adminUser) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const registrations = await Registration.find({ _id: { $in: registrationIds } });
+    if (registrations.length === 0) {
+      res.status(404).json({ error: 'No matching registrations found.' });
+      return;
+    }
+
+    const eventIds = Array.from(new Set(registrations.map(r => String(r.eventId))));
+    const eventId = eventIds[0];
+    const event = await Event.findById(eventId);
+
+    const eventInfo = {
+      title: event?.title || 'Event',
+      date: event?.date,
+      location: event?.location
+    };
+
+    const targets = registrations.map(r => ({
+      participantName: r.participantName || (r.formData ? (r.formData['Full Name'] || r.formData['name']) : '') || 'Participant',
+      participantEmail: r.participantEmail || (r.formData ? (r.formData['Email'] || r.formData['email']) : '') || '',
+      registrationId: r.registrationId || String(r._id)
+    })).filter(t => t.participantEmail);
+
+    if (targets.length === 0) {
+      res.status(400).json({ error: 'None of the selected registrations have a valid email address.' });
+      return;
+    }
+
+    const adminUsername = adminUser.username || 'Admin';
+
+    // Dispatch pooled parallel emails in seconds
+    const emailResult = await sendBulkCustomEmail(targets, subject.trim(), bodyText.trim(), eventInfo);
+
+    await logAdminAction(
+      adminUser.id,
+      adminUsername,
+      'BULK_EMAIL_SENT',
+      `Sent custom bulk email '${subject.trim()}' to ${emailResult.sentCount} participant(s) for event '${eventInfo.title}'.`,
+      req.ip || 'unknown'
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully dispatched email to ${emailResult.sentCount} participant(s).`,
+      sentCount: emailResult.sentCount,
+      failedCount: emailResult.failedCount,
+      mode: emailResult.mode
+    });
+  } catch (err: any) {
+    console.error('[sendBulkEmailController Error]:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to dispatch bulk emails.' });
+  }
+};
+
+
 
 
 

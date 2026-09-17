@@ -129,17 +129,25 @@ export const getEventDashboardStats = async (req: AuthRequest, res: Response): P
 
     const [
       totalRegistrations,
+      approvedCount,
+      rejectedCount,
       spotRegistrations,
       attendanceCount,
       kitsIssued,
       couponsIssued
     ] = await Promise.all([
       Registration.countDocuments(filter),
+      Registration.countDocuments({ ...filter, approvalStatus: 'APPROVED' }),
+      Registration.countDocuments({ ...filter, approvalStatus: 'REJECTED' }),
       Registration.countDocuments({ ...filter, category: 'Spot' }),
       Registration.countDocuments({ ...filter, attended: true }),
       Registration.countDocuments({ ...filter, kitIssued: true }),
       Registration.countDocuments({ ...filter, $or: [{ foodRedeemed: true }, { couponIssued: true }] })
     ]);
+
+    const pendingCount = Math.max(0, totalRegistrations - approvedCount - rejectedCount);
+    const capacity = Number(event.capacity || 0);
+    const remainingSlots = capacity > 0 ? Math.max(0, capacity - approvedCount) : 'Unlimited';
 
     res.status(200).json({
       eventId,
@@ -149,6 +157,10 @@ export const getEventDashboardStats = async (req: AuthRequest, res: Response): P
       eventStatus:  event.status,
       eventCapacity: event.capacity,
       totalRegistrations,
+      approvedCount,
+      pendingCount,
+      rejectedCount,
+      remainingSlots,
       spotRegistrations,
       attendanceCount,
       kitsIssued,

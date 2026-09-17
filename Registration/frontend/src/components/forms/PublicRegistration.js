@@ -139,6 +139,138 @@ export async function renderPublicRegistrationPage(eventId) {
       }
     };
 
+    const styleBlock = `
+      <style>
+        .public-reg-wrapper {
+          min-height: 100vh;
+          width: 100%;
+          background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 40px 16px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          box-sizing: border-box;
+        }
+        .public-reg-card {
+          background: #ffffff;
+          border-radius: 24px;
+          max-width: 560px;
+          width: 100%;
+          padding: 36px;
+          box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+          margin: 20px auto 60px auto;
+          box-sizing: border-box;
+        }
+        .public-reg-banner {
+          width: 100%;
+          max-height: 220px;
+          object-fit: cover;
+          border-radius: 16px;
+          margin-bottom: 20px;
+          display: block;
+        }
+        .public-reg-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #0f172a;
+          margin: 8px 0 6px 0;
+          line-height: 1.3;
+          word-break: break-word;
+        }
+        .public-reg-desc {
+          font-size: 14px;
+          color: #64748b;
+          margin: 0;
+          line-height: 1.5;
+          word-break: break-word;
+        }
+        .public-reg-section-card {
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 18px;
+          padding: 22px;
+          margin-bottom: 24px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .public-reg-confirm-card {
+          background: #ffffff;
+          border-radius: 24px;
+          max-width: 480px;
+          width: 100%;
+          padding: 44px 36px;
+          border: none;
+          text-align: center;
+          box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+          box-sizing: border-box;
+        }
+        .public-reg-ref-id {
+          font-size: 24px;
+          font-weight: 800;
+          color: #4f46e5;
+          letter-spacing: 1.5px;
+          font-family: 'Inter', system-ui, sans-serif;
+          word-break: break-all;
+        }
+
+        @media (max-width: 640px) {
+          .public-reg-wrapper {
+            padding: 12px 10px !important;
+          }
+          .public-reg-card {
+            padding: 22px 16px !important;
+            margin: 8px auto 28px auto !important;
+            border-radius: 18px !important;
+          }
+          .public-reg-banner {
+            max-height: 170px !important;
+            border-radius: 12px !important;
+            margin-bottom: 16px !important;
+          }
+          .public-reg-title {
+            font-size: 20px !important;
+          }
+          .public-reg-desc {
+            font-size: 13px !important;
+          }
+          .public-reg-section-card {
+            padding: 16px 12px !important;
+            border-radius: 14px !important;
+            margin-bottom: 18px !important;
+          }
+          .public-reg-confirm-card {
+            padding: 28px 18px !important;
+            border-radius: 20px !important;
+          }
+          .public-reg-ref-id {
+            font-size: 20px !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .public-reg-wrapper {
+            padding: 8px 6px !important;
+          }
+          .public-reg-card {
+            padding: 16px 12px !important;
+            border-radius: 14px !important;
+          }
+          .public-reg-section-card {
+            padding: 14px 10px !important;
+          }
+          .public-reg-confirm-card {
+            padding: 22px 14px !important;
+          }
+          .public-reg-ref-id {
+            font-size: 18px !important;
+          }
+        }
+      </style>
+    `;
+
     let fieldsHTML = '';
     if (hasSections) {
       fieldsHTML = formSchema.map((sec, sIdx) => {
@@ -151,7 +283,7 @@ export async function renderPublicRegistrationPage(eventId) {
           }).join('');
 
           return `
-            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:18px; padding:22px; margin-bottom:24px; box-shadow:0 2px 10px rgba(0,0,0,0.02);">
+            <div class="public-reg-section-card">
               <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #cbd5e1;">
                 <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0 0 4px 0;">${sec.title || `Section ${sIdx + 1}`}</h3>
                 ${sec.description ? `<p style="font-size:13px; color:#64748b; margin:0; line-height:1.4;">${sec.description}</p>` : ''}
@@ -174,14 +306,15 @@ export async function renderPublicRegistrationPage(eventId) {
     }
 
     app.innerHTML = `
-      <div style="min-height:100vh; width:100%; background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; box-sizing:border-box;">
-        <div style="background:#ffffff; border-radius:24px; max-width:560px; width:100%; padding:36px; box-shadow:0 25px 60px rgba(0,0,0,0.35); margin:20px auto 60px auto;">
+      ${styleBlock}
+      <div class="public-reg-wrapper">
+        <div class="public-reg-card">
           <!-- Event Banner / Title Header -->
           <div style="text-align:center; margin-bottom:28px;">
-            ${event.bannerImage ? `<img src="${resolveImageUrl(event.bannerImage)}" alt="${event.title}" style="width:100%; max-height:220px; object-fit:cover; border-radius:16px; margin-bottom:20px;" />` : ''}
+            ${event.bannerImage ? `<img src="${resolveImageUrl(event.bannerImage)}" alt="${event.title}" class="public-reg-banner" />` : ''}
             <span style="font-size:11px; font-weight:800; color:#4f46e5; text-transform:uppercase; letter-spacing:1px;">EVENT REGISTRATION</span>
-            <h1 style="font-size:24px; font-weight:800; color:#0f172a; margin:8px 0 6px 0; line-height:1.3;">${event.title}</h1>
-            <p style="font-size:14px; color:#64748b; margin:0; line-height:1.5;">${event.description || 'Fill out the form below to complete your registration.'}</p>
+            <h1 class="public-reg-title">${event.title}</h1>
+            <p class="public-reg-desc">${event.description || 'Fill out the form below to complete your registration.'}</p>
           </div>
 
           <!-- Dynamic Form -->
@@ -297,8 +430,9 @@ export async function renderPublicRegistrationPage(eventId) {
 
         // Render Registration Success Page (Matching Reference Image)
         app.innerHTML = `
-          <div style="min-height:100vh; background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); display:flex; align-items:center; justify-content:center; padding:40px 16px;">
-            <div style="background:#ffffff; border-radius:24px; max-width:480px; width:100%; padding:44px 36px; border:none; text-align:center; box-shadow:0 25px 60px rgba(0,0,0,0.35);">
+          ${styleBlock}
+          <div class="public-reg-wrapper" style="align-items:center;">
+            <div class="public-reg-confirm-card">
               
               <!-- Soft Green Circle Check Icon -->
               <div style="width:68px; height:68px; border-radius:50%; background:rgba(34,197,94,0.14); display:flex; align-items:center; justify-content:center; margin:0 auto 20px auto;">
@@ -320,12 +454,11 @@ export async function renderPublicRegistrationPage(eventId) {
                 <div style="font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">
                   REGISTRATION REFERENCE ID
                 </div>
-                <div style="font-size:24px; font-weight:800; color:#4f46e5; letter-spacing:1.5px; font-family: 'Inter', system-ui, sans-serif;">
+                <div class="public-reg-ref-id">
                   ${regId}
                 </div>
               </div>
 
-              <!-- Button removed as requested -->
             </div>
           </div>
         `;

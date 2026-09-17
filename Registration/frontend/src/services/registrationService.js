@@ -152,3 +152,53 @@ export async function deleteRegistration(id) {
   notifyRegistrationDeleted('Participant');
   return data;
 }
+
+export async function approveParticipant(id) {
+  const res = await apiFetch(`/api/registrations/${id}/approve`, {
+    method: 'PUT'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to approve participant');
+  return data;
+}
+
+export async function rejectParticipant(id) {
+  const res = await apiFetch(`/api/registrations/${id}/reject`, {
+    method: 'PUT'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to reject participant');
+  return data;
+}
+
+export async function bulkApproveParticipants(registrationIds) {
+  const res = await apiFetch('/api/registrations/bulk-approve', {
+    method: 'PUT',
+    body: JSON.stringify({ registrationIds })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to bulk approve participants');
+  return data;
+}
+
+export async function bulkRejectParticipants(registrationIds) {
+  const res = await apiFetch('/api/registrations/bulk-reject', {
+    method: 'PUT',
+    body: JSON.stringify({ registrationIds })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to bulk reject participants');
+  return data;
+}
+
+export async function sendBulkEmail(registrationIds, subject, bodyText) {
+  const res = await apiFetch('/api/registrations/bulk-email', {
+    method: 'POST',
+    body: JSON.stringify({ registrationIds, subject, bodyText })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to dispatch bulk email');
+  return data;
+}
+
+

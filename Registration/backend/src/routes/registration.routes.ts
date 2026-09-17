@@ -20,7 +20,12 @@ import {
   getSingleRegistrationDetails,
   deleteRegistration,
   manualSearchParticipant,
-  manualMarkAttendance
+  manualMarkAttendance,
+  approveParticipant,
+  rejectParticipant,
+  bulkApproveParticipants,
+  bulkRejectParticipants,
+  sendBulkEmailController
 } from '../controllers/registration.controller';
 import { authenticateJWT } from '../middleware/auth.middleware';
 
@@ -39,6 +44,13 @@ router.post('/verify-lookup', authenticateJWT as any, lookupParticipantForVerifi
 // Direct QR Scanner Action Endpoints
 router.post('/scan-kit', scanKit as any);
 router.post('/scan-food', scanFood as any);
+
+// Phase 2 Approval / Rejection & Bulk Email Endpoints (Admin only)
+router.put('/bulk-approve', authenticateJWT as any, bulkApproveParticipants as any);
+router.put('/bulk-reject', authenticateJWT as any, bulkRejectParticipants as any);
+router.post('/bulk-email', authenticateJWT as any, sendBulkEmailController as any);
+router.put('/:id/approve', authenticateJWT as any, approveParticipant as any);
+router.put('/:id/reject', authenticateJWT as any, rejectParticipant as any);
 
 // ============================================================
 // IMPORTANT: Static routes MUST come before dynamic /:param routes

@@ -1397,8 +1397,8 @@ h1, h2, h3, h4 {
 /* Event Cards Grid (Picture 1) */
 .events-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
 }
 
 .event-card {

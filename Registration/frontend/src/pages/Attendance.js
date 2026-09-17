@@ -31,15 +31,76 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
   function renderVerificationScreen(errorMsg = '') {
     const buttonText = 'Verify Registration';
 
+    const styleBlock = `
+      <style>
+        .attendance-landing-wrapper {
+          min-height: 100vh;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 16px;
+          background: #251b60;
+          box-sizing: border-box;
+          overflow-x: hidden;
+        }
+        .attendance-card {
+          background: #ffffff;
+          border-radius: 28px;
+          padding: 44px 36px;
+          text-align: center;
+          max-width: 520px;
+          width: 100%;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          border: none;
+          box-sizing: border-box;
+        }
+        .attendance-title {
+          font-size: 24px;
+          font-weight: 900;
+          color: #0f172a;
+          margin-bottom: 8px;
+          line-height: 1.3;
+          letter-spacing: -0.3px;
+          word-break: break-word;
+        }
+        @media (max-width: 640px) {
+          .attendance-landing-wrapper {
+            padding: 14px 10px !important;
+          }
+          .attendance-card {
+            padding: 28px 18px !important;
+            border-radius: 20px !important;
+          }
+          .attendance-title {
+            font-size: 20px !important;
+          }
+        }
+        @media (max-width: 380px) {
+          .attendance-landing-wrapper {
+            padding: 10px 6px !important;
+          }
+          .attendance-card {
+            padding: 20px 14px !important;
+            border-radius: 16px !important;
+          }
+          .attendance-title {
+            font-size: 18px !important;
+          }
+        }
+      </style>
+    `;
+
     app.innerHTML = `
-      <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#251b60;">
-        <div class="attendance-card" style="background:#ffffff; border-radius:28px; padding:44px 36px; text-align:center; max-width:520px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:none;">
+      ${styleBlock}
+      <div class="attendance-landing-wrapper">
+        <div class="attendance-card">
           
           <div style="width:60px; height:60px; background:#f3e8ff; color:#7c3aed; font-size:28px; border-radius:18px; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
             ${deskType === 'food' ? '🍽️' : '📱'}
           </div>
 
-          <h1 style="font-size:24px; font-weight:900; color:#0f172a; margin-bottom:8px; line-height:1.3; letter-spacing:-0.3px;">
+          <h1 class="attendance-title">
             Welcome to ${pageState.eventTitle}
           </h1>
           <p style="font-size:13.5px; font-weight:500; color:#64748b; margin-bottom:28px;">
