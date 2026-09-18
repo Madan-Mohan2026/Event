@@ -433,7 +433,6 @@ export async function renderFormStudioView(eventId) {
 
     // Render sections & fields into #studio-sections-stack with zero scroll reset
     const drawSectionsStack = () => {
-      syncDOMToState();
       const pos = saveScrollPosition();
 
       const sections = selectedEvent.formSchema || [];
@@ -601,7 +600,10 @@ export async function renderFormStudioView(eventId) {
       // Move Section Up / Down / Delete
       document.querySelectorAll('.move-sec-up-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.move-sec-up-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
           if (sIdx > 0) {
             const temp = selectedEvent.formSchema[sIdx];
             selectedEvent.formSchema[sIdx] = selectedEvent.formSchema[sIdx - 1];
@@ -612,7 +614,10 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.move-sec-down-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.move-sec-down-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
           if (sIdx < selectedEvent.formSchema.length - 1) {
             const temp = selectedEvent.formSchema[sIdx];
             selectedEvent.formSchema[sIdx] = selectedEvent.formSchema[sIdx + 1];
@@ -623,16 +628,24 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.delete-sec-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          selectedEvent.formSchema.splice(sIdx, 1);
-          drawSectionsStack();
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.delete-sec-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          if (!isNaN(sIdx) && selectedEvent.formSchema[sIdx]) {
+            selectedEvent.formSchema.splice(sIdx, 1);
+            drawSectionsStack();
+          }
         });
       });
 
       // Add Field to Section
       document.querySelectorAll('.add-field-to-sec-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.add-field-to-sec-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
           const targetSec = selectedEvent.formSchema[sIdx];
           if (targetSec) {
             if (!Array.isArray(targetSec.fields)) targetSec.fields = [];
@@ -664,11 +677,13 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.field-type-select').forEach(sel => {
         sel.addEventListener('change', (e) => {
-          const sIdx = parseInt(e.target.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.target.getAttribute('data-fidx'), 10);
+          syncDOMToState();
+          const selEl = e.currentTarget || e.target;
+          const sIdx = parseInt(selEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(selEl.getAttribute('data-fidx'), 10);
           if (selectedEvent.formSchema[sIdx]?.fields[fIdx]) {
-            selectedEvent.formSchema[sIdx].fields[fIdx].fieldType = e.target.value;
-            selectedEvent.formSchema[sIdx].fields[fIdx].type = e.target.value;
+            selectedEvent.formSchema[sIdx].fields[fIdx].fieldType = selEl.value;
+            selectedEvent.formSchema[sIdx].fields[fIdx].type = selEl.value;
             drawSectionsStack();
           }
         });
@@ -714,8 +729,11 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.add-option-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.add-option-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(btnEl.getAttribute('data-fidx'), 10);
           const targetField = selectedEvent.formSchema[sIdx]?.fields[fIdx];
           if (targetField) {
             if (!Array.isArray(targetField.options)) targetField.options = [];
@@ -726,9 +744,12 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.remove-opt-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
-          const oIdx = parseInt(e.currentTarget.getAttribute('data-oidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.remove-opt-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(btnEl.getAttribute('data-fidx'), 10);
+          const oIdx = parseInt(btnEl.getAttribute('data-oidx'), 10);
           if (selectedEvent.formSchema[sIdx]?.fields[fIdx]?.options) {
             selectedEvent.formSchema[sIdx].fields[fIdx].options.splice(oIdx, 1);
             drawSectionsStack();
@@ -739,8 +760,11 @@ export async function renderFormStudioView(eventId) {
       // Move Field Up / Down / Duplicate / Delete
       document.querySelectorAll('.move-field-up-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.move-field-up-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(btnEl.getAttribute('data-fidx'), 10);
           const fields = selectedEvent.formSchema[sIdx]?.fields;
           if (fields && fIdx > 0) {
             const temp = fields[fIdx];
@@ -752,8 +776,11 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.move-field-down-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.move-field-down-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(btnEl.getAttribute('data-fidx'), 10);
           const fields = selectedEvent.formSchema[sIdx]?.fields;
           if (fields && fIdx < fields.length - 1) {
             const temp = fields[fIdx];
@@ -765,8 +792,11 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.duplicate-field-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
+          e.preventDefault();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.duplicate-field-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(btnEl.getAttribute('data-fidx'), 10);
           const sourceField = selectedEvent.formSchema[sIdx]?.fields[fIdx];
           if (sourceField) {
             const clonedField = {
@@ -782,9 +812,13 @@ export async function renderFormStudioView(eventId) {
       });
       document.querySelectorAll('.delete-field-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const sIdx = parseInt(e.currentTarget.getAttribute('data-sidx'), 10);
-          const fIdx = parseInt(e.currentTarget.getAttribute('data-fidx'), 10);
-          if (selectedEvent.formSchema[sIdx]?.fields) {
+          e.preventDefault();
+          e.stopPropagation();
+          syncDOMToState();
+          const btnEl = e.currentTarget || e.target.closest('.delete-field-btn') || btn;
+          const sIdx = parseInt(btnEl.getAttribute('data-sidx'), 10);
+          const fIdx = parseInt(btnEl.getAttribute('data-fidx'), 10);
+          if (selectedEvent.formSchema[sIdx]?.fields && !isNaN(fIdx)) {
             selectedEvent.formSchema[sIdx].fields.splice(fIdx, 1);
             drawSectionsStack();
           }
@@ -795,7 +829,9 @@ export async function renderFormStudioView(eventId) {
     };
 
     // Add New Section listener
-    document.getElementById('add-new-section-btn')?.addEventListener('click', () => {
+    document.getElementById('add-new-section-btn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      syncDOMToState();
       selectedEvent.formSchema.push({
         id: `sec_${Date.now()}`,
         isSection: true,

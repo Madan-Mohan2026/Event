@@ -455,20 +455,24 @@ export async function renderPublicRegistrationPage(eventId, step = '') {
         .public-reg-hero-right {
           display: flex;
           justify-content: center;
+          align-items: center;
         }
         .public-reg-hero-banner-wrapper {
           width: 100%;
-          max-height: 360px;
           border-radius: 20px;
           overflow: hidden;
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
           border: 1px solid rgba(255, 255, 255, 0.15);
+          background: rgba(15, 23, 42, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .public-reg-hero-banner-img {
           width: 100%;
-          height: 100%;
-          max-height: 360px;
-          object-fit: cover;
+          height: auto;
+          max-height: 500px;
+          object-fit: contain;
           display: block;
         }
 
@@ -520,15 +524,20 @@ export async function renderPublicRegistrationPage(eventId, step = '') {
         }
         .public-reg-venue-img-wrapper {
           width: 100%;
-          height: 180px;
           border-radius: 14px;
           overflow: hidden;
-          background: #f1f5f9;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .public-reg-venue-img {
           width: 100%;
-          height: 100%;
-          object-fit: cover;
+          height: auto;
+          max-height: 260px;
+          object-fit: contain;
+          display: block;
         }
         .public-reg-venue-address-title {
           font-size: 16px;
