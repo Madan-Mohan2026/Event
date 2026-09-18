@@ -25,11 +25,16 @@ import {
   rejectParticipant,
   bulkApproveParticipants,
   bulkRejectParticipants,
-  sendBulkEmailController
+  sendBulkEmailController,
+  bulkImportParticipants
 } from '../controllers/registration.controller';
 import { authenticateJWT } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Bulk Import Participants via Excel / Google Sheets (Admin only)
+router.post('/events/:eventId/bulk-import', authenticateJWT as any, bulkImportParticipants as any);
+router.post('/:eventId/bulk-import', authenticateJWT as any, bulkImportParticipants as any);
 
 // Manual Attendance Endpoints (Admin only)
 router.post('/manual-search', authenticateJWT as any, manualSearchParticipant as any);

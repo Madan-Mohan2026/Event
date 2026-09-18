@@ -4,6 +4,7 @@ import { getRegistrations, getAllRegistrations, bulkApproveParticipants, bulkRej
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { showAlert, exportToExcelCSV, formatISTTime, formatISTDateTime } from '../utils/helpers.js';
+import { openBulkImportModal } from '../components/events/BulkImportModal.js';
 
 import { API_BASE } from '../utils/constants.js';
 
@@ -90,10 +91,15 @@ export async function renderRegistrationsLandingView() {
             </div>
           </div>
 
-          <button type="button" class="view-event-regs-btn" data-event-id="${ev._id}" style="width:100%; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#ffffff; border:none; padding:12px 16px; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(99,102,241,0.3);">
-            <span>Manage Approvals</span>
-            <span>→</span>
-          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="view-event-regs-btn" data-event-id="${ev._id}" style="flex:1; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#ffffff; border:none; padding:12px 14px; border-radius:12px; font-size:13.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 14px rgba(99,102,241,0.3);">
+              <span>Manage Approvals</span>
+              <span>→</span>
+            </button>
+            <button type="button" class="card-import-data-btn" data-event-id="${ev._id}" style="background:#eff6ff; color:#4338ca; border:1.5px solid #c7d2fe; padding:12px 14px; border-radius:12px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;" title="Upload Registered Participants (Excel / Google Sheet)">
+              <span>📥 Import</span>
+            </button>
+          </div>
         </div>
       `;
     }).join('') : `
@@ -149,6 +155,20 @@ export async function renderRegistrationsLandingView() {
         const evId = this.getAttribute('data-event-id');
         if (evId) {
           navigate(`#registrations/${evId}`);
+        }
+      });
+    });
+
+    // Card import data buttons
+    document.querySelectorAll('.card-import-data-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const evId = this.getAttribute('data-event-id');
+        const ev = events.find(item => String(item._id) === String(evId));
+        if (ev) {
+          openBulkImportModal(ev, () => {
+            renderRegistrationsLandingView();
+          });
         }
       });
     });
@@ -430,9 +450,14 @@ export async function renderEventSpecificRegistrations(eventId, filterState = {}
             </div>
             <p style="font-size: 13px; color: #64748b; margin:4px 0 0;">Participant Registration & Bulk Email/Approval Portal.</p>
           </div>
-          <button id="reg-export-btn" class="btn btn-primary" style="background-color:#10b981; border:none; padding:9px 20px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.3);">
-            📊 Download Excel Report
-          </button>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <button id="reg-import-btn" class="btn btn-primary" style="background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border:none; padding:9px 18px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,0.3);">
+              📥 Upload Data (Excel / Sheet)
+            </button>
+            <button id="reg-export-btn" class="btn btn-primary" style="background-color:#10b981; border:none; padding:9px 20px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.3);">
+              📊 Download Excel Report
+            </button>
+          </div>
         </div>
       </div>
 
@@ -954,6 +979,12 @@ RTIH Event Management Team`;
 
     document.getElementById('reg-export-btn')?.addEventListener('click', () => {
       exportToExcelCSV(registrations, `${(selectedEvent.title || 'Event').replace(/\s+/g, '_')}_Registrations.csv`);
+    });
+
+    document.getElementById('reg-import-btn')?.addEventListener('click', () => {
+      openBulkImportModal(selectedEvent, () => {
+        renderEventSpecificRegistrations(eventId);
+      });
     });
 
     // Status Tab Listeners

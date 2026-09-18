@@ -3,13 +3,13 @@ import path from 'path';
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { fetchS3BannersList, getS3ObjectStream } from '../services/s3Storage.service';
-import { getEventStatus, getRegistrationStatus, isRegistrationAllowed } from '../utils/eventStatus';
+import { getEventStatus, getRegistrationStatus } from '../utils/eventStatus';
 
 /**
  * Returns a high quality category-matched default banner image URL
  * when an event has no uploaded image.
  */
-function getDefaultCategoryBanner(category?: string): string {
+export function getDefaultCategoryBanner(category?: string): string {
   const cat = (category || '').toUpperCase();
   if (cat.includes('STARTUP') || cat.includes('MSME') || cat.includes('INNOV')) {
     return 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1200&q=80';

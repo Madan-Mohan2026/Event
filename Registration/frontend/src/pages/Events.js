@@ -10,6 +10,7 @@ import { renderEventCard } from '../components/events/EventCard.js';
 import { openCreateEventModal } from '../components/events/CreateEventModal.js';
 import { copyEventLink } from '../utils/eventHelpers.js';
 import { getPublicBaseUrl, buildQrUrl } from '../utils/qrHelpers.js';
+import { openBulkImportModal } from '../components/events/BulkImportModal.js';
 
 export async function renderEvents() {
   return renderEventsList();
@@ -282,6 +283,19 @@ export async function renderEventsList() {
         } catch (err) {
           showAlert('Failed to update event status: ' + err.message, 'danger');
           renderEventsList();
+        }
+      });
+    });
+
+    // Bind Import Participants Button
+    document.querySelectorAll('.import-participants-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.getAttribute('data-id');
+        const eventObj = state.events.find(ev => String(ev._id) === String(id));
+        if (eventObj) {
+          openBulkImportModal(eventObj, () => {
+            renderEventsList();
+          });
         }
       });
     });

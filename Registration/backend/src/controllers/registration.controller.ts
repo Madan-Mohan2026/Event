@@ -3329,6 +3329,182 @@ export const sendBulkEmailController = async (req: AuthRequest, res: Response): 
   }
 };
 
+/**
+ * Bulk import registered participants for an event (Excel / Google Sheets data)
+ * POST /api/registrations/events/:eventId/bulk-import
+ */
+export const bulkImportParticipants = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const eventId = req.params.eventId || req.body.eventId;
+    const { participants, defaultApprovalStatus = 'APPROVED', sendEmail = false } = req.body;
+
+    if (!isValidObjectId(eventId)) {
+      res.status(400).json({ error: 'Valid eventId is required.' });
+      return;
+    }
+
+    if (!Array.isArray(participants) || participants.length === 0) {
+      res.status(400).json({ error: 'Participants list is required and cannot be empty.' });
+      return;
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404).json({ error: 'Event not found.' });
+      return;
+    }
+
+    const adminUsername = req.user?.username || 'Super Admin';
+    const approvalStatus = defaultApprovalStatus === 'PENDING' ? 'PENDING' : 'APPROVED';
+    const now = new Date();
+    const hostUrl = getAccessibleHostUrl(req);
+
+    // Fetch existing registrations to check duplicates in memory for efficiency
+    const existingRegs = await Registration.find({ eventId }).select('participantEmail participantPhone participantPhoneNormalized').lean();
+    const existingEmails = new Set(existingRegs.map(r => (r.participantEmail || '').toLowerCase()).filter(Boolean));
+    const existingPhones = new Set(existingRegs.map(r => r.participantPhoneNormalized || r.participantPhone || '').filter(Boolean));
+
+    const importedRecords: any[] = [];
+    const skippedRecords: any[] = [];
+
+    // Current total count for generating structured IDs
+    let currentCount = await Registration.countDocuments({ eventId });
+    const allEventsSorted = await Event.find({}).sort({ createdAt: 1 }).select('_id');
+    const foundIndex = allEventsSorted.findIndex(e => String(e._id) === String(eventId));
+    const eventOrder = foundIndex >= 0 ? (foundIndex + 1) : 1;
+    const cleanCode = String(event.title || 'EVT')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .substring(0, 4) || 'EVT';
+
+    const targetEvtId = String(event._id);
+    const kitWebUrl = `${hostUrl}/#kit-checkin/${targetEvtId}`;
+    const foodWebUrl = `${hostUrl}/#food-checkin/${targetEvtId}`;
+    const [kitDataUrl, foodDataUrl] = await Promise.all([
+      generateQrDataUrl(kitWebUrl).catch(() => ''),
+      generateQrDataUrl(foodWebUrl).catch(() => '')
+    ]);
+
+    for (const rawRow of participants) {
+      if (!rawRow || typeof rawRow !== 'object') continue;
+
+      const extracted = extractParticipantDetailsFromFormData(rawRow);
+      const pName = extracted.participantName || 'Participant';
+      const pEmail = extracted.participantEmail || '';
+      const pPhone = extracted.participantPhone || '';
+      const normPhone = normalizePhoneNumber(pPhone);
+
+      // Check duplicates
+      if (pEmail && existingEmails.has(pEmail)) {
+        skippedRecords.push({ name: pName, email: pEmail, reason: 'Duplicate email' });
+        continue;
+      }
+      if (normPhone && existingPhones.has(normPhone)) {
+        skippedRecords.push({ name: pName, phone: pPhone, reason: 'Duplicate phone' });
+        continue;
+      }
+
+      currentCount++;
+      const numericId = (eventOrder * 1000) + currentCount;
+      const regId = `REG-${cleanCode}-${numericId}`;
+
+      const submittedFields = Object.entries(rawRow).map(([k, v]) => ({
+        fieldId: k,
+        label: k,
+        type: 'text',
+        value: v
+      }));
+
+      const newReg = new Registration({
+        registrationId: regId,
+        eventId: event._id,
+        eventTitle: event.title || 'Event',
+        eventCode: cleanCode,
+        formId: event.assignedFormId || String(event._id),
+        participantName: pName,
+        participantEmail: pEmail,
+        participantPhone: pPhone,
+        participantPhoneNormalized: normPhone,
+        participant: {
+          fullName: pName,
+          email: pEmail,
+          phone: pPhone
+        },
+        formData: rawRow,
+        submittedFields,
+        approvalStatus,
+        approvedAt: approvalStatus === 'APPROVED' ? now : undefined,
+        approvedBy: approvalStatus === 'APPROVED' ? adminUsername : '',
+        registeredAt: now,
+        attended: false,
+        kitIssued: false,
+        couponIssued: false,
+        foodRedeemed: false,
+        feedback: '',
+        category: rawRow.category || rawRow.Category || event.category || 'General',
+        kitQrToken: '',
+        kitQrCodeDataUrl: kitDataUrl,
+        foodQrToken: '',
+        foodQrCodeDataUrl: foodDataUrl
+      });
+
+      newReg.kitQrToken = String(newReg._id);
+      newReg.foodQrToken = String(newReg._id);
+
+      await newReg.save();
+      importedRecords.push(newReg);
+
+      if (pEmail) existingEmails.add(pEmail);
+      if (normPhone) existingPhones.add(normPhone);
+
+      if (sendEmail && approvalStatus === 'APPROVED' && pEmail) {
+        sendApprovalEmail(
+          {
+            participantName: pName,
+            participantEmail: pEmail,
+            registrationId: regId
+          },
+          {
+            title: event.title,
+            date: event.date,
+            location: event.location,
+            supportEmail: event.supportEmail
+          }
+        ).catch(() => null);
+      }
+    }
+
+    if (importedRecords.length > 0) {
+      await Event.findByIdAndUpdate(eventId, { $inc: { registeredCount: importedRecords.length } }).catch(() => null);
+      clearDashboardCache();
+      clearEventsCache();
+      broadcastRealtimeEvent('STATS_UPDATED', { action: 'BULK_IMPORT', eventId });
+    }
+
+    if (req.user) {
+      await logAdminAction(
+        req.user.id,
+        adminUsername,
+        'BULK_IMPORT_PARTICIPANTS',
+        `Imported ${importedRecords.length} participant(s) via Excel/Google Sheet for event '${event.title}'. Skipped ${skippedRecords.length} duplicate(s).`,
+        req.ip || 'unknown'
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully imported ${importedRecords.length} participant(s). ${skippedRecords.length > 0 ? `Skipped ${skippedRecords.length} duplicate(s).` : ''}`,
+      importedCount: importedRecords.length,
+      skippedCount: skippedRecords.length,
+      skippedDetails: skippedRecords
+    });
+  } catch (err: any) {
+    console.error('[bulkImportParticipants Error]:', err);
+    res.status(500).json({ error: err.message || 'Failed to bulk import participants.' });
+  }
+};
+
+
 
 
 
