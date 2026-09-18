@@ -80,23 +80,23 @@ export const EventDetailsPage: React.FC = () => {
         </div>
 
         {/* 1. EVENT BANNER IMAGE */}
-        <div className="w-full h-64 sm:h-96 lg:h-[450px] rounded-3xl overflow-hidden bg-slate-100 border border-slate-200 shadow-md relative">
+        <div className="w-full min-h-[220px] sm:min-h-[320px] lg:min-h-[400px] max-h-[600px] rounded-3xl overflow-hidden bg-slate-950 border border-slate-200 shadow-md relative flex items-center justify-center">
           <img
             src={event.bannerUrl}
             alt={event.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full max-h-[600px] object-contain block"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
             }}
           />
-          <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+          <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-10">
             {event.category && (
               <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-900/80 text-white backdrop-blur-md shadow-sm">
                 {event.category}
               </span>
             )}
           </div>
-          <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5">
+          <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
             {currentEventStatus === 'upcoming' && (
               <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-purple-600 text-white shadow-md flex items-center gap-1.5">
                 <Award className="w-4 h-4" /> UPCOMING
