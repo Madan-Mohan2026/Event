@@ -20,11 +20,11 @@ export async function renderCreateEventPage(state, eventId = null) {
 
   let eventObj = null;
   if (eventId) {
-    eventObj = state.events?.find(e => String(e._id) === String(eventId)) || null;
-    if (!eventObj) {
-      try {
-        eventObj = await getEventById(eventId);
-      } catch (err) {
+    try {
+      eventObj = await getEventById(eventId);
+    } catch (err) {
+      eventObj = state.events?.find(e => String(e._id) === String(eventId)) || null;
+      if (!eventObj) {
         showAlert('Failed to load event details for editing.', 'danger');
       }
     }

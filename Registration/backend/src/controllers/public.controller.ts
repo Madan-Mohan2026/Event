@@ -3,28 +3,7 @@ import path from 'path';
 import { Request, Response } from 'express';
 import { Event } from '../models/event.model';
 import { fetchS3BannersList, getS3ObjectStream } from '../services/s3Storage.service';
-import { getEventStatus, getRegistrationStatus, isRegistrationAllowed } from '../utils/eventStatus';
-
-/**
- * Returns a high quality category-matched default banner image URL
- * when an event has no uploaded image.
- */
-function getDefaultCategoryBanner(category?: string): string {
-  const cat = (category || '').toUpperCase();
-  if (cat.includes('STARTUP') || cat.includes('MSME') || cat.includes('INNOV')) {
-    return 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (cat.includes('AI') || cat.includes('TECH') || cat.includes('DIGITAL')) {
-    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (cat.includes('GREEN') || cat.includes('ENERGY') || cat.includes('CLEAN')) {
-    return 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (cat.includes('WOMEN') || cat.includes('LEADERSHIP')) {
-    return 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&w=1200&q=80';
-  }
-  return 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80';
-}
+import { getEventStatus, getRegistrationStatus } from '../utils/eventStatus';
 
 /**
  * Transforms an internal Mongoose Event document into a sanitized Public EventItem.
@@ -158,7 +137,7 @@ function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = [
     slug: ev.eventCode || `evt-${ev._id}`,
     title: ev.title,
     summary: ev.summary || '',
-    shortDescription: ev.summary || (ev.description ? ev.description.substring(0, 160) + (ev.description.length > 160 ? '...' : '') : ''),
+    shortDescription: ev.summary || '',
     fullDescription: ev.description || '',
     bannerUrl,
     date: new Date(ev.date).toISOString().split('T')[0],

@@ -131,11 +131,16 @@ export const EventDetailsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. EVENT TITLE */}
+        {/* 2. EVENT TITLE & SUMMARY */}
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
             {event.title}
           </h1>
+          {event.summary && (
+            <p className="text-slate-600 text-base sm:text-lg font-medium leading-relaxed">
+              {event.summary}
+            </p>
+          )}
         </div>
 
         {/* 3. EVENT DATE + REGISTRATION DATES SECTION */}
@@ -211,7 +216,7 @@ export const EventDetailsPage: React.FC = () => {
             About This Event
           </h2>
           <p className="text-slate-700 text-base sm:text-lg leading-relaxed whitespace-pre-line">
-            {event.fullDescription || event.shortDescription}
+            {event.fullDescription || ''}
           </p>
         </div>
 
