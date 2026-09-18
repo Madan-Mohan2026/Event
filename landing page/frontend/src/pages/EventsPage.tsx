@@ -107,12 +107,12 @@ export const EventsPage: React.FC = () => {
                 onClick={() => setActiveStatus('ongoing')}
                 className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   activeStatus === 'ongoing'
-                    ? 'bg-amber-600 text-white shadow-md'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-slate-900 text-slate-400 hover:text-white'
                 }`}
               >
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                Ongoing Registrations
+                <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                Ongoing Events
               </button>
               <button
                 onClick={() => setActiveStatus('completed')}

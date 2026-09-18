@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { EventItem } from '../types/event';
 import { EventService } from '../services/eventService';
-import { Calendar, Clock, ArrowLeft, Edit3, Sparkles } from 'lucide-react';
+import { getEventStatus, getRegistrationStatus } from '../utils/eventStatus';
+import { Calendar, Clock, ArrowLeft, Edit3, Sparkles, CheckCircle2, Award, XCircle } from 'lucide-react';
 
 export const EventDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -51,8 +52,11 @@ export const EventDetailsPage: React.FC = () => {
     );
   }
 
-  const registrationStartDisplay = event.registrationStartDate || 'TBA';
-  const registrationEndDisplay = event.registrationEndDate || 'TBA';
+  const currentEventStatus = getEventStatus(event);
+  const regStatus = getRegistrationStatus(event);
+
+  const registrationStartDisplay = regStatus.formattedStart || event.registrationStartDate || 'TBA';
+  const registrationEndDisplay = regStatus.formattedEnd || event.registrationEndDate || 'TBA';
 
   return (
     <div className="pt-24 sm:pt-28 pb-24 bg-[#F8FAFC] min-h-screen">
@@ -85,13 +89,46 @@ export const EventDetailsPage: React.FC = () => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
             }}
           />
-          {event.category && (
-            <div className="absolute top-4 left-4">
+          <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+            {event.category && (
               <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-900/80 text-white backdrop-blur-md shadow-sm">
                 {event.category}
               </span>
-            </div>
-          )}
+            )}
+          </div>
+          <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5">
+            {currentEventStatus === 'upcoming' && (
+              <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-purple-600 text-white shadow-md flex items-center gap-1.5">
+                <Award className="w-4 h-4" /> UPCOMING
+              </span>
+            )}
+            {currentEventStatus === 'ongoing' && (
+              <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-blue-600 text-white shadow-md flex items-center gap-1.5">
+                <Clock className="w-4 h-4" /> ONGOING
+              </span>
+            )}
+            {currentEventStatus === 'completed' && (
+              <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-slate-700 text-white shadow-md flex items-center gap-1.5">
+                <XCircle className="w-4 h-4" /> COMPLETED
+              </span>
+            )}
+
+            {regStatus.code === 'not_open' && (
+              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500 text-white shadow-sm flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" /> Registration Not Yet Open
+              </span>
+            )}
+            {regStatus.code === 'open' && (
+              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-sm flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Registration Open
+              </span>
+            )}
+            {regStatus.code === 'closed' && (
+              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-600 text-white shadow-sm flex items-center gap-1">
+                <XCircle className="w-3.5 h-3.5" /> Registration Closed
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 2. EVENT TITLE */}
@@ -142,11 +179,7 @@ export const EventDetailsPage: React.FC = () => {
 
         {/* 4. REGISTER NOW BUTTON */}
         <div>
-          {event.status === 'completed' ? (
-            <div className="w-full py-4 rounded-2xl bg-slate-100 border border-slate-200 text-center text-slate-500 font-bold text-base">
-              Registration Closed
-            </div>
-          ) : (
+          {regStatus.code === 'open' ? (
             <button
               onClick={() => {
                 const regUrl = EventService.getRegistrationUrl(event.id);
@@ -157,6 +190,18 @@ export const EventDetailsPage: React.FC = () => {
               <Edit3 className="w-5 h-5 sm:w-6 sm:h-6" />
               <span>REGISTER NOW</span>
             </button>
+          ) : regStatus.code === 'not_open' ? (
+            <button
+              disabled
+              className="w-full py-4 sm:py-4.5 px-8 rounded-2xl font-extrabold text-base sm:text-lg text-amber-900 bg-amber-100 border-2 border-amber-300 shadow-sm flex items-center justify-center gap-3 cursor-not-allowed opacity-95"
+            >
+              <Clock className="w-5 h-5 text-amber-700" />
+              <span>Registration Opens {registrationStartDisplay}</span>
+            </button>
+          ) : (
+            <div className="w-full py-4 rounded-2xl bg-slate-100 border border-slate-200 text-center text-slate-500 font-bold text-base">
+              Registration Closed
+            </div>
           )}
         </div>
 

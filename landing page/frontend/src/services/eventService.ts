@@ -1,4 +1,5 @@
 import type { EventItem, EventCategory, EventStatus, RegistrationFormData, RegistrationResult } from '../types/event';
+import { getEventStatus, getRegistrationStatus } from '../utils/eventStatus';
 
 const defaultProdBackend = 'https://event-hjoa.onrender.com';
 const isLocalhost = typeof window !== 'undefined' && (
@@ -15,11 +16,11 @@ const API_BASE_URL = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 export function resolveBannerUrl(url?: string): string {
   if (!url || typeof url !== 'string') {
-    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+    return '';
   }
   const trimmed = url.trim();
   if (!trimmed) {
-    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+    return '';
   }
   if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
@@ -80,10 +81,16 @@ export class EventService {
 
       const data = await response.json();
       const rawList = data && Array.isArray(data.events) ? data.events : (Array.isArray(data) ? data : []);
-      return rawList.map((ev: any) => ({
-        ...ev,
-        bannerUrl: resolveBannerUrl(ev.bannerUrl)
-      })) as EventItem[];
+      return rawList.map((ev: any) => {
+        const computedStatus = getEventStatus(ev);
+        const regStatus = getRegistrationStatus(ev);
+        return {
+          ...ev,
+          status: computedStatus,
+          registrationStatus: regStatus.code,
+          bannerUrl: resolveBannerUrl(ev.bannerUrl)
+        };
+      }) as EventItem[];
     } catch (error) {
       console.error('❌ Failed to fetch public events from backend API:', error);
       return [];
@@ -109,8 +116,14 @@ export class EventService {
       const data = await response.json();
       const ev = data && data.success && data.event ? data.event : (data && data.id ? data : null);
       if (!ev) return null;
+
+      const computedStatus = getEventStatus(ev);
+      const regStatus = getRegistrationStatus(ev);
+
       return {
         ...ev,
+        status: computedStatus,
+        registrationStatus: regStatus.code,
         bannerUrl: resolveBannerUrl(ev.bannerUrl)
       } as EventItem;
     } catch (error) {
