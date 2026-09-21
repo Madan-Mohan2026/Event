@@ -19,12 +19,15 @@ async function getAssignedEventIds(userId: string): Promise<string[]> {
     const allEvents = await Event.find().select('_id').lean();
     return allEvents.map(e => String(e._id));
   }
+
   const ids: string[] = [];
   if (user.assignedEventIds && user.assignedEventIds.length > 0) {
     ids.push(...user.assignedEventIds.map(id => String(id)));
-  } else if (user.assignedEventId) {
+  }
+  if (user.assignedEventId && !ids.includes(String(user.assignedEventId))) {
     ids.push(String(user.assignedEventId));
   }
+
   return ids;
 }
 
@@ -35,18 +38,23 @@ export const getAdminDashboard = async (req: AuthRequest, res: Response): Promis
 
     const isSuperAdmin = req.user.role === 'super_admin' || (req.user.role as any) === 'superadmin';
     const reqEventId = req.query.eventId as string;
-    let eventIds = await getAssignedEventIds(req.user.id);
+    const authorizedEventIds = await getAssignedEventIds(req.user.id);
+    let eventIds: string[] = [];
 
     if (reqEventId && reqEventId.trim() !== '' && reqEventId.trim() !== 'all') {
       const cleanId = reqEventId.trim();
-      if (isSuperAdmin) {
+      if (isSuperAdmin || authorizedEventIds.includes(cleanId)) {
         eventIds = [cleanId];
       } else {
-        if (eventIds.includes(cleanId)) {
-          eventIds = [cleanId];
-        } else {
-          eventIds = [];
-        }
+        eventIds = [];
+      }
+    } else {
+      const userDoc = await User.findById(req.user.id).select('assignedEventId').lean();
+      const defaultActiveId = userDoc?.assignedEventId || (authorizedEventIds.length > 0 ? authorizedEventIds[authorizedEventIds.length - 1] : null);
+      if (defaultActiveId && (isSuperAdmin || authorizedEventIds.includes(String(defaultActiveId)))) {
+        eventIds = [String(defaultActiveId)];
+      } else {
+        eventIds = authorizedEventIds;
       }
     }
 
@@ -268,7 +276,9 @@ export const getMyRegistrations = async (req: AuthRequest, res: Response): Promi
       if (eventId && eventId !== 'all') {
         filter.eventId = assignedIds.includes(String(eventId)) ? eventId : { $in: [] };
       } else {
-        filter.eventId = { $in: assignedIds };
+        const userDoc = await User.findById(req.user.id).select('assignedEventId').lean();
+        const activeId = userDoc?.assignedEventId || (assignedIds.length > 0 ? assignedIds[assignedIds.length - 1] : null);
+        filter.eventId = activeId || { $in: assignedIds };
       }
     }
 

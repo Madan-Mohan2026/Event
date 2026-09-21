@@ -199,7 +199,7 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// PATCH /api/users/:id/assign-event — Assign a single event to a user (legacy)
+// PATCH /api/users/:id/assign-event — Assign a single event to a user (multi-event compatible)
 export const assignEvent = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -211,24 +211,21 @@ export const assignEvent = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    const superAdminUsername = req.user?.username || 'system';
+
     user.assignedEventId = eventId || '';
-    // Also keep assignedEventIds in sync
+    if (!user.assignedEventIds) user.assignedEventIds = [];
+
+    if (eventId && !user.assignedEventIds.includes(eventId)) {
+      user.assignedEventIds.push(eventId);
+    }
+
     if (eventId) {
-      if (!user.assignedEventIds) user.assignedEventIds = [];
-      if (!user.assignedEventIds.includes(eventId)) {
-        user.assignedEventIds.push(eventId);
-      }
       const adminName = user.fullName || user.username || user.email;
       await Event.findByIdAndUpdate(eventId, { assignedAdmin: adminName });
-    } else {
-      if (user.assignedEventIds && user.assignedEventIds.length > 0) {
-        await Event.updateMany({ _id: { $in: user.assignedEventIds } }, { assignedAdmin: 'Unassigned (Super Admin Only)' });
-      }
-      user.assignedEventIds = [];
     }
-    await user.save();
 
-    const superAdminUsername = req.user?.username || 'system';
+    await user.save();
 
     if (req.user) {
       await logAdminAction(
@@ -260,6 +257,7 @@ export const assignEvent = async (req: AuthRequest, res: Response): Promise<void
     res.status(500).json({ error: error.message || 'Failed to assign event.' });
   }
 };
+
 
 // PATCH /api/users/:id/assign-events — Assign multiple events to an admin
 export const assignEvents = async (req: AuthRequest, res: Response): Promise<void> => {

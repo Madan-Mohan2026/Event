@@ -374,7 +374,8 @@ export const getAllRegistrations = async (req: AuthRequest, res: Response): Prom
       if (eventId && eventId !== 'all' && isValidObjectId(eventId)) {
         filter.eventId = assignedIds.includes(String(eventId)) ? eventId : { $in: [] };
       } else {
-        filter.eventId = { $in: assignedIds };
+        const activeId = userDoc?.assignedEventId || (assignedIds.length > 0 ? assignedIds[assignedIds.length - 1] : null);
+        filter.eventId = activeId || { $in: assignedIds };
       }
     } else {
       if (eventId && eventId !== 'all' && isValidObjectId(eventId)) {
@@ -3326,6 +3327,149 @@ export const sendBulkEmailController = async (req: AuthRequest, res: Response): 
   } catch (err: any) {
     console.error('[sendBulkEmailController Error]:', err.message);
     res.status(500).json({ error: err.message || 'Failed to dispatch bulk emails.' });
+  }
+};
+
+/**
+ * Bulk Import Registrations (Admin endpoint)
+ * Expects: req.params.eventId, req.body.participants = Array<{ name, phone, email, organization, designation, ... }>
+ */
+export const bulkImportRegistrations = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { eventId } = req.params;
+    const { participants, defaultStatus = 'APPROVED' } = req.body;
+
+    if (!Array.isArray(participants) || participants.length === 0) {
+      res.status(400).json({ error: 'Participants list is required and must be a non-empty array.' });
+      return;
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404).json({ error: 'Event not found.' });
+      return;
+    }
+
+    // Get existing registrations for duplicate check
+    const existingRegs = await Registration.find({ eventId }).lean();
+    const existingPhonesSet = new Set<string>();
+    const existingEmailsSet = new Set<string>();
+
+    existingRegs.forEach((r: any) => {
+      if (r.participantPhoneNormalized) existingPhonesSet.add(r.participantPhoneNormalized);
+      if (r.participantPhone) existingPhonesSet.add(normalizePhoneNumber(r.participantPhone));
+      if (r.participantEmail) existingEmailsSet.add(String(r.participantEmail).toLowerCase().trim());
+    });
+
+    let importedCount = 0;
+    let skippedCount = 0;
+    const newDocs: any[] = [];
+
+    const startCounter = existingRegs.length + 1;
+    const cleanSlug = String(event.title || 'EVT').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
+
+    for (let i = 0; i < participants.length; i++) {
+      const item = participants[i];
+      const name = String(item.name || item.participantName || item.fullName || item['Employee Name'] || item['Name'] || '').trim();
+      const rawPhone = String(item.phone || item.participantPhone || item.mobile || item.contact || item['Contact No'] || item['Contact No.'] || item['Mobile'] || '').trim();
+      const email = String(item.email || item.participantEmail || item['Email'] || '').trim();
+      const org = String(item.organization || item.company || item['Organization'] || item['Company'] || '').trim();
+      const desig = String(item.designation || item.role || item['Designation'] || item['Role'] || '').trim();
+
+      if (!name && !rawPhone && !email) {
+        skippedCount++;
+        continue;
+      }
+
+      const normPhone = normalizePhoneNumber(rawPhone);
+      const normEmail = email ? email.toLowerCase() : '';
+
+      // Check duplicates
+      if (normPhone && existingPhonesSet.has(normPhone)) {
+        skippedCount++;
+        continue;
+      }
+      if (normEmail && existingEmailsSet.has(normEmail)) {
+        skippedCount++;
+        continue;
+      }
+
+      if (normPhone) existingPhonesSet.add(normPhone);
+      if (normEmail) existingEmailsSet.add(normEmail);
+
+      const counter = startCounter + newDocs.length;
+      const regId = `REG-${cleanSlug || 'EVT'}-${1000 + counter}`;
+
+      const formDataObj: Record<string, any> = {
+        'Full Name': name || 'Participant',
+        'Participant Name': name || 'Participant',
+        'Phone': rawPhone,
+        'Mobile': rawPhone,
+        'Email': email,
+        'Organization': org,
+        'Designation': desig
+      };
+
+      // Add all original keys into formData for safety
+      Object.keys(item).forEach(k => {
+        if (item[k] !== undefined && item[k] !== null && item[k] !== '') {
+          formDataObj[k] = item[k];
+        }
+      });
+
+      const approvalStatus = (defaultStatus || 'APPROVED').toUpperCase() === 'PENDING' ? 'PENDING' : 'APPROVED';
+
+      newDocs.push({
+        registrationId: regId,
+        eventId: event._id,
+        eventCode: event.eventCode || '',
+        eventTitle: event.title || '',
+        participantName: name || 'Participant',
+        participantEmail: email || '',
+        participantPhone: rawPhone || '',
+        participantPhoneNormalized: normPhone || '',
+        formData: formDataObj,
+        registeredAt: new Date(),
+        approvalStatus,
+        approvedAt: approvalStatus === 'APPROVED' ? new Date() : undefined,
+        approvedBy: approvalStatus === 'APPROVED' ? (req.user?.username || 'Super Admin (Bulk Import)') : '',
+        category: event.participantType || event.category || 'General',
+        status: 'Registered',
+        attended: false,
+        kitIssued: false,
+        couponIssued: false,
+        foodRedeemed: false
+      });
+
+      importedCount++;
+    }
+
+    if (newDocs.length > 0) {
+      await Registration.insertMany(newDocs);
+      clearDashboardCache();
+      clearEventsCache();
+    }
+
+    if (req.user) {
+      await logAdminAction(
+        req.user.id,
+        req.user.username,
+        'BULK_IMPORT_REGISTRATIONS',
+        { eventId: event._id, title: event.title, importedCount, skippedCount },
+        req.ip || 'unknown'
+      ).catch(() => {});
+    }
+
+    res.status(200).json({
+      success: true,
+      importedCount,
+      skippedCount,
+      totalProcessed: participants.length,
+      message: `Successfully imported ${importedCount} participants into "${event.title}". (${skippedCount} skipped)`
+    });
+  } catch (error: any) {
+    console.error('❌ [bulkImportRegistrations ERROR]:', error);
+    res.status(500).json({ error: error.message || 'Failed to bulk import participants.' });
   }
 };
 

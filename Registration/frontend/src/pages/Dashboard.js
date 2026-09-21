@@ -278,7 +278,8 @@ export async function openMetricsDetailModal(metricType) {
     let allRegistrations = [];
 
     if (isEventAdmin) {
-      const res = await apiFetch('/api/admin/registrations');
+      const activeEventId = state.currentEvent?._id || state.user?.assignedEventId || localStorage.getItem('current_event_id') || '';
+      const res = await apiFetch(`/api/admin/registrations${activeEventId ? '?eventId=' + activeEventId : ''}`);
       const data = await res.json();
       const regs = data.registrations || (Array.isArray(data) ? data : []);
       const eventTitle = state.currentEvent?.title || 'Assigned Event';

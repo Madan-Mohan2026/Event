@@ -107,9 +107,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       token,
       user: {
         id: user._id,
+        fullName: user.fullName || user.username,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: user.role,
+        assignedEventId: user.assignedEventId,
+        assignedEventIds: user.assignedEventIds
       }
     });
   } catch (error: any) {
