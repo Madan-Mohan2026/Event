@@ -20,12 +20,23 @@ export async function renderCreateEventPage(state, eventId = null) {
 
   let eventObj = null;
   if (eventId) {
-    eventObj = state.events?.find(e => String(e._id) === String(eventId)) || null;
-    if (!eventObj) {
-      try {
-        eventObj = await getEventById(eventId);
-      } catch (err) {
+    try {
+      eventObj = await getEventById(eventId);
+    } catch (err) {
+      eventObj = state.events?.find(e => String(e._id) === String(eventId)) || null;
+      if (!eventObj) {
         showAlert('Failed to load event details for editing.', 'danger');
+      }
+    }
+
+    if (eventObj) {
+      if (eventObj.foodRequiresAttendance === undefined) {
+        try {
+          const storedPref = localStorage.getItem(`event_food_requires_attendance_${eventObj._id}`);
+          if (storedPref !== null) {
+            eventObj.foodRequiresAttendance = storedPref === 'true';
+          }
+        } catch (e) {}
       }
     }
   }
@@ -464,15 +475,28 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
         supportEmail: document.getElementById('ev-email')?.value.trim() || '',
         bannerImage: bannerImageDataUrl,
         agendaPdf: agendaPdfDataUrl,
-        status: isEdit ? eventObj.status : 'draft'
+        status: isEdit ? eventObj.status : 'draft',
+        foodRequiresAttendance: document.getElementById('ev-food-requires-attendance')?.value !== 'false'
       };
 
       if (isEdit) {
         await updateEvent(eventObj._id, payload);
+        try {
+          localStorage.setItem(`event_food_requires_attendance_${eventObj._id}`, String(payload.foodRequiresAttendance));
+          if (Array.isArray(state.events)) {
+            const found = state.events.find(e => String(e._id) === String(eventObj._id));
+            if (found) found.foodRequiresAttendance = payload.foodRequiresAttendance;
+          }
+        } catch (e) {}
         notifyEventUpdated(payload.title);
         showAlert(`Event "${payload.title}" updated successfully!`, 'success');
       } else {
-        await createEvent(payload);
+        const created = await createEvent(payload);
+        try {
+          if (created && created._id) {
+            localStorage.setItem(`event_food_requires_attendance_${created._id}`, String(payload.foodRequiresAttendance));
+          }
+        } catch (e) {}
         notifyEventCreated(payload.title);
         showAlert(`Event "${payload.title}" created successfully!`, 'success');
       }

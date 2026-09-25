@@ -167,8 +167,62 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
           alertBox.innerHTML = `<div class="alert alert-danger" style="margin-bottom:16px; background:#fff7ed; border:1.5px solid #fed7aa; color:#c2410c; padding:12px 16px; border-radius:12px; font-weight:700; font-size:13.5px; text-align:left;">⚠️ Attendance Not Recorded! Please complete your entrance attendance process first before redeeming your food coupon.</div>`;
           verifyBtn.disabled = false;
           verifyBtn.innerHTML = buttonText;
-        } else {
-          // Case 2 — Mobile Number NOT Found
+        } else if (data.code === 'NOT_APPROVED' || data.approvalStatus || (data.exists && !response.ok)) {
+          // Participant IS registered for this event, but is PENDING approval or REJECTED
+          const isPending = data.approvalStatus === 'PENDING' || (data.error && data.error.toUpperCase().includes('PENDING'));
+
+          if (deskType === 'food') {
+            if (isPending) {
+              renderFoodApprovalPendingScreen(data);
+            } else {
+              renderFoodRejectedScreen(data);
+            }
+          } else {
+            if (isPending) {
+              const regBadge = data.registrationId
+                ? `<div style="font-size:12.5px; font-weight:700; color:#64748b; margin-bottom:10px;">Registration ID: <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:3px 10px; border-radius:20px; font-weight:800;">${data.registrationId}</span></div>`
+                : '';
+              const pName = data.participantName
+                ? `<div style="font-size:14px; font-weight:800; color:#1e293b; margin-bottom:4px;">Participant: ${data.participantName}</div>`
+                : '';
+              alertBox.innerHTML = `
+                <div style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:20px; padding:22px 20px; margin-bottom:24px; text-align:center;">
+                  <div style="width:48px; height:48px; background:#fef3c7; color:#d97706; font-size:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 10px auto;">
+                    ⏳
+                  </div>
+                  <div style="color:#b45309; font-weight:800; font-size:15px; margin-bottom:6px;">
+                    Registration Found — Pending Approval
+                  </div>
+                  ${pName}
+                  ${regBadge}
+                  <div style="font-size:13px; color:#92400e; font-weight:600; line-height:1.5; margin-bottom:10px;">
+                    Your registration for <strong>${pageState.eventTitle}</strong> has been received, but is currently <strong>PENDING</strong> approval by the event administrator.
+                  </div>
+                  <div style="font-size:12px; color:#78350f; background:#fef3c7; padding:10px 14px; border-radius:10px; font-weight:600; line-height:1.4;">
+                    Check-in will be unlocked once the organizer approves your registration. Please check with the registration desk.
+                  </div>
+                </div>
+              `;
+            } else {
+              alertBox.innerHTML = `
+                <div style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:20px; padding:22px 20px; margin-bottom:24px; text-align:center;">
+                  <div style="width:48px; height:48px; background:#fee2e2; color:#dc2626; font-size:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 10px auto;">
+                    ❌
+                  </div>
+                  <div style="color:#dc2626; font-weight:800; font-size:15px; margin-bottom:6px;">
+                    Registration Not Approved
+                  </div>
+                  <div style="font-size:13px; color:#991b1b; font-weight:600; line-height:1.5;">
+                    Your registration for <strong>${pageState.eventTitle}</strong> was not approved by the event administrator.
+                  </div>
+                </div>
+              `;
+            }
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = buttonText;
+          }
+        } else if (response.status === 404 || data.exists === false || (data.error && data.error.toLowerCase().includes('no registration found'))) {
+          // Case 2 — Mobile Number NOT Found for this event
           if (deskType === 'food') {
             renderFoodUnavailableScreen();
           } else {
@@ -195,6 +249,11 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
               renderSpotRegistrationForm(mobile);
             });
           }
+        } else {
+          // Other error (e.g. invalid input format)
+          alertBox.innerHTML = `<div class="alert alert-danger" style="margin-bottom:16px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 16px; border-radius:12px; font-weight:700; font-size:13.5px;">⚠️ ${data.error || 'Verification failed. Please try again.'}</div>`;
+          verifyBtn.disabled = false;
+          verifyBtn.innerHTML = buttonText;
         }
       } catch (err) {
         alertBox.innerHTML = `<div class="alert alert-danger" style="margin-bottom:16px;">⚠️ Network error. Please try again.</div>`;
@@ -351,6 +410,71 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
     `;
 
     document.getElementById('back-verify-btn')?.addEventListener('click', () => {
+      renderVerificationScreen();
+    });
+  }
+
+  function renderFoodApprovalPendingScreen(data = {}) {
+    const regIdBadge = data.registrationId
+      ? `<div style="font-size:12.5px; font-weight:700; color:#64748b; margin-bottom:14px;">Registration ID: <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:3px 10px; border-radius:20px; font-weight:800;">${data.registrationId}</span></div>`
+      : '';
+    const pName = data.participantName
+      ? `<div style="font-size:14px; font-weight:800; color:#1e293b; margin-bottom:4px;">Participant: ${data.participantName}</div>`
+      : '';
+
+    app.innerHTML = `
+      <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#fff7ed;">
+        <div style="background:#ffffff; border-radius:24px; padding:40px 32px; text-align:center; max-width:480px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,0.06); border:1px solid #fde68a;">
+          <div style="width:68px; height:68px; background:#fef3c7; color:#d97706; font-size:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
+            ⏳
+          </div>
+
+          <h1 style="font-size:22px; font-weight:900; color:#b45309; margin-bottom:8px;">Registration Pending Approval</h1>
+          ${pName}
+          ${regIdBadge}
+
+          <p style="font-size:14px; color:#475569; font-weight:600; margin-bottom:14px; line-height:1.5;">
+            Your registration for <strong>${pageState.eventTitle}</strong> was found, but is currently <span style="background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:6px; font-weight:800;">PENDING</span> approval by the event administrator.
+          </p>
+
+          <p style="font-size:13px; color:#78350f; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px; font-weight:500; margin-bottom:24px; line-height:1.5;">
+            Food coupons can only be issued after your registration is approved. Please contact the event administrator or registration desk.
+          </p>
+
+          <button id="back-food-pending-btn" class="btn btn-secondary btn-full" style="width:100%; padding:14px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer;">
+            Try Different Mobile Number
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('back-food-pending-btn')?.addEventListener('click', () => {
+      renderVerificationScreen();
+    });
+  }
+
+  function renderFoodRejectedScreen(data = {}) {
+    app.innerHTML = `
+      <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#fff7ed;">
+        <div style="background:#ffffff; border-radius:24px; padding:40px 32px; text-align:center; max-width:480px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,0.06); border:1px solid #fecaca;">
+          <div style="width:68px; height:68px; background:#fef2f2; color:#ef4444; font-size:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
+            🚫
+          </div>
+
+          <h1 style="font-size:22px; font-weight:900; color:#ef4444; margin-bottom:12px;">Registration Not Approved</h1>
+
+          <p style="font-size:14px; color:#475569; font-weight:600; margin-bottom:24px; line-height:1.5;">
+            Your registration for <strong>${pageState.eventTitle}</strong> was not approved by the event administrator. Food coupon is unavailable.
+          </p>
+
+          <button id="back-food-rejected-btn" class="btn btn-secondary btn-full" style="width:100%; padding:14px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer;">
+            Try Different Mobile Number
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('back-food-rejected-btn')?.addEventListener('click', () => {
       renderVerificationScreen();
     });
   }

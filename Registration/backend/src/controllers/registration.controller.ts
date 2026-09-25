@@ -20,6 +20,43 @@ const isValidObjectId = (id: any): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
+/**
+ * Helper to determine if an event requires attendance before food coupon redemption.
+ *
+ * Rules:
+ * - Default must always be true.
+ * - Missing/undefined/null must be treated as true.
+ * - Only an explicit false means attendance is NOT required.
+ */
+export async function isFoodAttendanceRequired(eventIdOrDoc: any): Promise<boolean> {
+  if (!eventIdOrDoc) return true;
+
+  // 1. If passed an Event document or plain object directly with foodRequiresAttendance explicitly set
+  if (typeof eventIdOrDoc === 'object' && eventIdOrDoc.foodRequiresAttendance !== undefined && eventIdOrDoc.foodRequiresAttendance !== null) {
+    if (eventIdOrDoc.foodRequiresAttendance === false || eventIdOrDoc.foodRequiresAttendance === 'false') {
+      return false;
+    }
+    if (eventIdOrDoc.foodRequiresAttendance === true || eventIdOrDoc.foodRequiresAttendance === 'true') {
+      return true;
+    }
+  }
+
+  // 2. Otherwise extract the Event ID (whether it was an event doc with _id, a mongoose ObjectId, or a string)
+  const eventId = (typeof eventIdOrDoc === 'object' && eventIdOrDoc._id)
+    ? eventIdOrDoc._id
+    : eventIdOrDoc;
+
+  try {
+    const event = await Event.findById(eventId).select('foodRequiresAttendance').lean();
+    if (event && (event.foodRequiresAttendance === false || (event as any).foodRequiresAttendance === 'false')) {
+      return false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 // Helper to extract fields from section-based or flat schemas
 function flattenFormSchema(schema: any[]): any[] {
   const flat: any[] = [];
@@ -374,7 +411,8 @@ export const getAllRegistrations = async (req: AuthRequest, res: Response): Prom
       if (eventId && eventId !== 'all' && isValidObjectId(eventId)) {
         filter.eventId = assignedIds.includes(String(eventId)) ? eventId : { $in: [] };
       } else {
-        filter.eventId = { $in: assignedIds };
+        const activeId = userDoc?.assignedEventId || (assignedIds.length > 0 ? assignedIds[assignedIds.length - 1] : null);
+        filter.eventId = activeId || { $in: assignedIds };
       }
     } else {
       if (eventId && eventId !== 'all' && isValidObjectId(eventId)) {
@@ -1022,6 +1060,8 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
         ...eventFilter,
         $or: [
           { participantPhone: { $in: phoneVariants } },
+          { participantPhoneNormalized: { $in: phoneVariants } },
+          { 'participant.phone': { $in: phoneVariants } },
           { registrationId: { $in: regIdVariants } },
           ...(/^[0-9a-fA-F]{24}$/.test(mobile.trim()) ? [{ _id: mobile.trim() }] : [])
         ]
@@ -1067,11 +1107,15 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
       const errDetail = matchedRegistration.approvalStatus === 'PENDING'
         ? 'Your registration is PENDING approval by the event administrator.'
         : 'Your registration was NOT APPROVED for this event.';
+      const actionName = (req.body.deskType || req.body.type) === 'food' ? 'Food Redemption' : 'Check-in';
+      const shortRegId = matchedRegistration.registrationId || `#REG-${String(matchedRegistration._id).substring(18).toUpperCase()}`;
       res.status(400).json({
         exists: true,
-        error: `Check-in Failed: ${errDetail}`,
+        error: `${actionName} Failed: ${errDetail}`,
         code: 'NOT_APPROVED',
-        approvalStatus: matchedRegistration.approvalStatus
+        approvalStatus: matchedRegistration.approvalStatus,
+        registrationId: shortRegId,
+        participantName: matchedRegistration.participantName || 'Participant'
       });
       return;
     }
@@ -1135,7 +1179,8 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
     }
 
     if (deskType === 'food') {
-      if (!matchedRegistration.attended) {
+      const attendanceRequired = await isFoodAttendanceRequired(matchedRegistration.eventId || eventId);
+      if (attendanceRequired && !matchedRegistration.attended) {
         recordEventAction({
           eventId: matchedRegistration.eventId || eventId,
           registeredMobileNumber: mobile.trim(),
@@ -1911,14 +1956,14 @@ export const verifyFoodQr = async (req: Request, res: Response): Promise<void> =
     const payload = decryptToken(cleanToken);
 
     if (payload && payload.type === 'FOOD_COUPON' && payload.registrationId) {
-      registration = await Registration.findById(payload.registrationId).populate('eventId', 'title');
+      registration = await Registration.findById(payload.registrationId).populate('eventId', 'title foodRequiresAttendance');
     } else {
       registration = await Registration.findOne({
         $or: [
           { foodQrToken: cleanToken },
           { _id: cleanToken.length === 24 ? cleanToken : null }
         ]
-      }).populate('eventId', 'title');
+      }).populate('eventId', 'title foodRequiresAttendance');
     }
 
     if (!registration) {
@@ -1952,9 +1997,10 @@ export const verifyFoodQr = async (req: Request, res: Response): Promise<void> =
     const eventTitle = (registration.eventId as any)?.title || 'Event';
     const isAlreadyRedeemed = registration.foodRedeemed || registration.foodQrExpired;
 
-    if (!registration.attended) {
+    const attendanceRequired = await isFoodAttendanceRequired(registration.eventId);
+    if (attendanceRequired && !registration.attended) {
       await recordEventAction({
-        eventId: registration.eventId,
+        eventId: (registration.eventId as any)?._id || registration.eventId,
         registrationId: shortRegId,
         participantName,
         registeredMobileNumber: registration.participantPhone || '',
@@ -2051,8 +2097,9 @@ export const redeemFoodCoupon = async (req: Request, res: Response): Promise<voi
 
     const shortRegId = registration.registrationId || `#REG-${String(registration._id).substring(18).toUpperCase()}`;
 
-    // Block redemption if attendance is not marked yet
-    if (!registration.attended) {
+    // Block redemption if attendance is required and not marked yet
+    const attendanceRequired = await isFoodAttendanceRequired(registration.eventId);
+    if (attendanceRequired && !registration.attended) {
       await recordEventAction({
         eventId: registration.eventId,
         registrationId: shortRegId,
@@ -2392,8 +2439,9 @@ export const scanFood = async (req: Request, res: Response): Promise<void> => {
 
     const shortRegId = registration.registrationId || `#REG-${String(registration._id).substring(18).toUpperCase()}`;
 
-    // Block scan if attendance is not recorded yet
-    if (!registration.attended) {
+    // Block scan if attendance is required and not recorded yet
+    const attendanceRequired = await isFoodAttendanceRequired(registration.eventId);
+    if (attendanceRequired && !registration.attended) {
       console.log('[DEBUG QR SCAN]: Attendance Not Recorded for Token:', cleanToken);
       await recordEventAction({
         eventId: registration.eventId,
@@ -2772,9 +2820,15 @@ export const getSingleRegistrationDetails = async (req: AuthRequest, res: Respon
       const kitWebUrl = `${hostUrl}/#kit-checkin/${targetEvtId}`;
       registration.kitQrCodeDataUrl = await generateQrDataUrl(kitWebUrl);
     }
-    if (!registration.foodQrCodeDataUrl && registration.foodQrToken) {
+    if (!registration.foodQrCodeDataUrl || !registration.foodQrToken) {
       const foodWebUrl = `${hostUrl}/#food-checkin/${targetEvtId}`;
-      registration.foodQrCodeDataUrl = await generateQrDataUrl(foodWebUrl);
+      const foodDataUrl = await generateQrDataUrl(foodWebUrl);
+      registration.foodQrToken = registration.foodQrToken || String(registration._id);
+      registration.foodQrCodeDataUrl = foodDataUrl;
+      Registration.findByIdAndUpdate(registration._id, {
+        foodQrToken: registration.foodQrToken,
+        foodQrCodeDataUrl: registration.foodQrCodeDataUrl
+      }).catch(() => null);
     }
 
     let formSchema: any[] = [];
@@ -2826,6 +2880,8 @@ export const manualSearchParticipant = async (req: AuthRequest, res: Response): 
     const allRegs = await Registration.find({
       $or: [
         { participantPhone: mobileRegex },
+        { participantPhoneNormalized: mobileRegex },
+        { 'participant.phone': mobileRegex },
         { 'formData.participantPhone': mobileRegex },
         { 'formData.phone': mobileRegex },
         { 'formData.mobileNumber': mobileRegex },
@@ -2846,13 +2902,13 @@ export const manualSearchParticipant = async (req: AuthRequest, res: Response): 
     }
 
     // 3. Validate registration status (Only reject pending or rejected)
-    const regStatus = (targetReg.status || 'approved').toLowerCase();
+    const regStatus = (targetReg.approvalStatus || targetReg.status || 'approved').toLowerCase();
     if (regStatus === 'pending') {
-      res.status(400).json({ error: 'Participant is not approved yet.' });
+      res.status(400).json({ error: 'Participant is not approved yet.', status: 'PENDING', approvalStatus: 'PENDING' });
       return;
     }
     if (regStatus === 'rejected') {
-      res.status(400).json({ error: 'Participant registration was rejected.' });
+      res.status(400).json({ error: 'Participant registration was rejected.', status: 'REJECTED', approvalStatus: 'REJECTED' });
       return;
     }
 
@@ -3504,7 +3560,7 @@ export const bulkImportParticipants = async (req: AuthRequest, res: Response): P
   }
 };
 
-
+export const bulkImportRegistrations = bulkImportParticipants;
 
 
 

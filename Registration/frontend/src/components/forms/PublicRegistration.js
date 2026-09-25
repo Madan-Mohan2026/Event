@@ -1132,7 +1132,7 @@ export async function renderPublicRegistrationPage(eventId, step = '') {
       const venueLocationStr = event.location || event.venue || 'Ratan Tata Innovation Hub (RTIH) Amaravati';
       const mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(venueLocationStr)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
 
-      const summaryText = event.summary || (event.description && typeof event.description === 'string' ? event.description.split('\n')[0] : '');
+      const summaryText = event.summary || '';
 
       const heroRightHTML = bannerSrc ? `
         <div class="public-reg-hero-right">

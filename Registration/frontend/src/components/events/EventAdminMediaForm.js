@@ -61,6 +61,19 @@ export function renderEventAdminMediaForm(isEdit, eventObj) {
           </div>
         </div>
       </div>
+
+      <div class="form-grid-2col margin-top-12">
+        <div class="form-group-custom">
+          <label class="form-label-custom" for="ev-food-requires-attendance">Food Coupon Attendance Requirement</label>
+          <select id="ev-food-requires-attendance" class="form-control-custom">
+            <option value="true" ${safeEvent.foodRequiresAttendance === false || safeEvent.foodRequiresAttendance === 'false' ? '' : 'selected'}>Attendance Required</option>
+            <option value="false" ${safeEvent.foodRequiresAttendance === false || safeEvent.foodRequiresAttendance === 'false' ? 'selected' : ''}>Attendance Not Required</option>
+          </select>
+          <span style="font-size:11px; color:#64748b; margin-top:4px; display:block;">
+            Default: Attendance Required. If set to Not Required, approved participants can redeem food coupons without check-in.
+          </span>
+        </div>
+      </div>
     </div>
   `;
 }

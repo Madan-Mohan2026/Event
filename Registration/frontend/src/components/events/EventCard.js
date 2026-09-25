@@ -10,7 +10,7 @@ export function renderEventCard(event, availableForms = [], assignedFormMap = ne
   const isPublished = event.status === 'published';
   const hasFormAssigned = Boolean(event.assignedFormId && String(event.assignedFormId).trim() !== '');
   const dateFormatted = formatEventDate(event.date);
-  const summaryText = event.summary || event.description || '';
+  const summaryText = event.summary || '';
   const descShort = truncateDescription(summaryText, 100);
   const eventId = event._id || '';
   const title = event.title || 'Untitled Event';

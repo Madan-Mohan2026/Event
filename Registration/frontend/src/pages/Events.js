@@ -24,6 +24,16 @@ export async function renderEventsList() {
     ]);
 
     const events = Array.isArray(rawEvents) ? rawEvents : (rawEvents.events || []);
+    events.forEach(ev => {
+      if (ev && ev._id && ev.foodRequiresAttendance === undefined) {
+        try {
+          const storedPref = localStorage.getItem(`event_food_requires_attendance_${ev._id}`);
+          if (storedPref !== null) {
+            ev.foodRequiresAttendance = storedPref === 'true';
+          }
+        } catch (e) {}
+      }
+    });
     state.events = events;
 
     const availableForms = Array.isArray(rawForms) ? rawForms : (rawForms.forms || []);
@@ -305,6 +315,19 @@ export async function renderEventsList() {
       btn.addEventListener('click', function() {
         const id = this.getAttribute('data-id');
         copyEventLink(id);
+      });
+    });
+
+    // Bind Bulk Import Button
+    document.querySelectorAll('.import-participants-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.getAttribute('data-id');
+        const ev = state.events.find(e => String(e._id) === String(id));
+        if (ev) {
+          openBulkImportModal(ev, () => {
+            renderEventsList();
+          });
+        }
       });
     });
 

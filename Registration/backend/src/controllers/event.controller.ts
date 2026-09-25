@@ -391,7 +391,10 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       status: sanitizedStatus,
       assignedFormId: cleanAssignedFormId,
       formSchema: initialFormSchema,
-      agenda: []
+      agenda: [],
+      foodRequiresAttendance: req.body.foodRequiresAttendance !== undefined
+        ? (req.body.foodRequiresAttendance === true || req.body.foodRequiresAttendance === 'true')
+        : true
     });
 
     if (cleanAssignedFormId !== '') {
@@ -564,6 +567,9 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
         event.assignedFormId = '';
         event.formSchema = [];
       }
+    }
+    if (req.body.foodRequiresAttendance !== undefined) {
+      event.foodRequiresAttendance = req.body.foodRequiresAttendance === true || req.body.foodRequiresAttendance === 'true';
     }
 
     await event.save();

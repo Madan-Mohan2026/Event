@@ -84,9 +84,9 @@ export function renderAdminPortalLayout(activeViewId, viewTitle, contentHTML) {
     const btn = document.getElementById('header-export-excel-btn');
     if (btn) { btn.disabled = true; btn.innerText = '⏳ Exporting...'; }
     try {
-      const eventId = state.currentEvent?._id || '';
+      const eventId = state.currentEvent?._id || state.user?.assignedEventId || localStorage.getItem('current_event_id') || '';
       const [regRes, dashRes] = await Promise.all([
-        apiFetch(`/api/registrations${eventId ? '?eventId=' + eventId : ''}`),
+        apiFetch(`/api/admin/registrations${eventId ? '?eventId=' + eventId : ''}`),
         apiFetch(`/api/admin/dashboard${eventId ? '?eventId=' + eventId : ''}`)
       ]);
       const regData = await regRes.json();
@@ -120,7 +120,7 @@ export async function renderAdminDashboard() {
   `);
 
   try {
-    const eventId = state.currentEvent?._id || '';
+    const eventId = state.currentEvent?._id || state.user?.assignedEventId || localStorage.getItem('current_event_id') || '';
     const res = await apiFetch(`/api/admin/dashboard${eventId ? '?eventId=' + eventId : ''}`);
     const data = await res.json();
 

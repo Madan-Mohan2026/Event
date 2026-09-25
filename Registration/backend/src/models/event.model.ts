@@ -61,6 +61,7 @@ export interface IEvent extends Document {
   kitQrCodeDataUrl?: string;
   foodDeskUrl?: string;
   foodQrCodeDataUrl?: string;
+  foodRequiresAttendance?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,7 +127,8 @@ const eventSchema = new Schema<IEvent>(
     kitDeskUrl: { type: String, default: '' },
     kitQrCodeDataUrl: { type: String, default: '' },
     foodDeskUrl: { type: String, default: '' },
-    foodQrCodeDataUrl: { type: String, default: '' }
+    foodQrCodeDataUrl: { type: String, default: '' },
+    foodRequiresAttendance: { type: Boolean, default: true }
   },
   {
     timestamps: true

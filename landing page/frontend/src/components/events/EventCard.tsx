@@ -117,7 +117,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event }) => {
 
           {/* Summary */}
           <p className="text-slate-600 text-xs sm:text-sm line-clamp-2 leading-relaxed">
-            {event.summary || event.shortDescription}
+            {event.summary || event.shortDescription || ''}
           </p>
         </div>
 

@@ -158,7 +158,7 @@ function mapToPublicEvent(ev: any, _isList: boolean = true, s3Banners: any[] = [
     slug: ev.eventCode || `evt-${ev._id}`,
     title: ev.title,
     summary: ev.summary || '',
-    shortDescription: ev.summary || (ev.description ? ev.description.substring(0, 160) + (ev.description.length > 160 ? '...' : '') : ''),
+    shortDescription: ev.summary || '',
     fullDescription: ev.description || '',
     bannerUrl,
     date: new Date(ev.date).toISOString().split('T')[0],
