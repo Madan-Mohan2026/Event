@@ -1179,7 +1179,9 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
     }
 
     if (deskType === 'food') {
-      const attendanceRequired = await isFoodAttendanceRequired(matchedRegistration.eventId || eventId);
+      const attendanceRequired = req.body.foodRequiresAttendance !== undefined
+        ? (req.body.foodRequiresAttendance === true || req.body.foodRequiresAttendance === 'true')
+        : await isFoodAttendanceRequired(matchedRegistration.eventId || eventId);
       if (attendanceRequired && !matchedRegistration.attended) {
         recordEventAction({
           eventId: matchedRegistration.eventId || eventId,

@@ -24,6 +24,13 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       pageState.bannerImage = ev.bannerImage || '';
       pageState.agendaPdf = ev.agendaPdf || '';
       pageState.formSchema = Array.isArray(ev.formSchema) ? ev.formSchema : [];
+      pageState.foodRequiresAttendance = ev.foodRequiresAttendance;
+      if (pageState.foodRequiresAttendance === undefined) {
+        try {
+          const stored = localStorage.getItem(`event_food_requires_attendance_${eventId}`);
+          if (stored !== null) pageState.foodRequiresAttendance = stored === 'true';
+        } catch (err) {}
+      }
     }
   } catch (e) {}
 
@@ -148,10 +155,24 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       alertBox.innerHTML = '';
 
       try {
+        let isFoodAttNotReq = false;
+        try {
+          const stored = localStorage.getItem(`event_food_requires_attendance_${eventId}`);
+          if (stored !== null) {
+            isFoodAttNotReq = stored === 'false';
+          } else if (pageState.foodRequiresAttendance === false || pageState.foodRequiresAttendance === 'false') {
+            isFoodAttNotReq = true;
+          }
+        } catch (err) {}
+
         const response = await fetch(`${API_BASE}/api/registrations/${eventId}/verify-mobile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobileNumber: mobile, deskType })
+          body: JSON.stringify({
+            mobileNumber: mobile,
+            deskType,
+            foodRequiresAttendance: !isFoodAttNotReq
+          })
         });
         const data = await response.json();
 

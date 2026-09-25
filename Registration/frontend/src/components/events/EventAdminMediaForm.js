@@ -66,8 +66,20 @@ export function renderEventAdminMediaForm(isEdit, eventObj) {
         <div class="form-group-custom">
           <label class="form-label-custom" for="ev-food-requires-attendance">Food Coupon Attendance Requirement</label>
           <select id="ev-food-requires-attendance" class="form-control-custom">
-            <option value="true" ${safeEvent.foodRequiresAttendance === false || safeEvent.foodRequiresAttendance === 'false' ? '' : 'selected'}>Attendance Required</option>
-            <option value="false" ${safeEvent.foodRequiresAttendance === false || safeEvent.foodRequiresAttendance === 'false' ? 'selected' : ''}>Attendance Not Required</option>
+            ${(() => {
+              const evId = safeEvent._id ? String(safeEvent._id) : '';
+              let stored = null;
+              if (evId) {
+                try { stored = localStorage.getItem(`event_food_requires_attendance_${evId}`); } catch (e) {}
+              }
+              const isNotReq = stored !== null
+                ? stored === 'false'
+                : (safeEvent.foodRequiresAttendance === false || safeEvent.foodRequiresAttendance === 'false');
+              return `
+                <option value="true" ${!isNotReq ? 'selected' : ''}>Attendance Required</option>
+                <option value="false" ${isNotReq ? 'selected' : ''}>Attendance Not Required</option>
+              `;
+            })()}
           </select>
           <span style="font-size:11px; color:#64748b; margin-top:4px; display:block;">
             Default: Attendance Required. If set to Not Required, approved participants can redeem food coupons without check-in.

@@ -59,7 +59,7 @@ export async function renderCreateEventPage(state, eventId = null) {
       </div>
 
       <!-- Main Body Form Area (Occupies natural page width, full page scrolling) -->
-      <form id="create-event-page-form">
+      <form id="create-event-page-form" novalidate>
         <!-- Section 1: Basic Information -->
         ${renderEventBasicInfoForm(isEdit, eventObj)}
 
@@ -372,9 +372,35 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
     }
   });
 
-  // Submit Handler
-  document.getElementById('create-event-page-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  // Immediately persist attendance requirement change to localStorage
+  document.getElementById('ev-food-requires-attendance')?.addEventListener('change', (e) => {
+    if (eventId) {
+      try {
+        localStorage.setItem(`event_food_requires_attendance_${eventId}`, e.target.value);
+        if (Array.isArray(state.events)) {
+          const found = state.events.find(ev => String(ev._id) === String(eventId));
+          if (found) found.foodRequiresAttendance = e.target.value !== 'false';
+        }
+      } catch (err) {}
+    }
+  });
+
+  const submitBtn = document.getElementById('page-submit-btn');
+  const formEl = document.getElementById('create-event-page-form');
+  let isSubmitting = false;
+
+  const handleFormSubmit = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isSubmitting) return;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = isEdit ? 'Saving Changes...' : 'Creating Event...';
+    }
+    isSubmitting = true;
 
     try {
       const bannerFileInput = document.getElementById('ev-banner-file');
@@ -447,6 +473,9 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
         return;
       }
 
+      const foodSelectVal = document.getElementById('ev-food-requires-attendance')?.value;
+      const foodRequiresAttendanceVal = foodSelectVal !== 'false';
+
       const payload = {
         title: titleVal,
         summary: summaryVal,
@@ -476,7 +505,7 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
         bannerImage: bannerImageDataUrl,
         agendaPdf: agendaPdfDataUrl,
         status: isEdit ? eventObj.status : 'draft',
-        foodRequiresAttendance: document.getElementById('ev-food-requires-attendance')?.value !== 'false'
+        foodRequiresAttendance: foodRequiresAttendanceVal
       };
 
       if (isEdit) {
@@ -504,7 +533,16 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
     } catch (err) {
       console.error('[CreateEventPage]: Error submitting event form:', err);
       showAlert('Failed to save event: ' + (err.message || 'Unknown error'), 'danger');
+    } finally {
+      isSubmitting = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = isEdit ? 'Save Changes' : 'Create Event';
+      }
     }
-  });
+  };
+
+  formEl?.addEventListener('submit', handleFormSubmit);
+  submitBtn?.addEventListener('click', handleFormSubmit);
 }
 
