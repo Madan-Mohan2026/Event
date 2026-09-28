@@ -24,7 +24,15 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       pageState.bannerImage = ev.bannerImage || '';
       pageState.agendaPdf = ev.agendaPdf || '';
       pageState.formSchema = Array.isArray(ev.formSchema) ? ev.formSchema : [];
-      pageState.foodRequiresAttendance = ev.foodRequiresAttendance;
+      pageState.refreshmentType = ev.refreshmentType;
+      try {
+        const storedRef = localStorage.getItem(`event_refreshment_type_${eventId}`);
+        if (storedRef && (!pageState.refreshmentType || pageState.refreshmentType === 'food')) {
+          pageState.refreshmentType = storedRef;
+        }
+      } catch (e) {}
+      if (!pageState.refreshmentType) pageState.refreshmentType = 'food';
+
       if (pageState.foodRequiresAttendance === undefined) {
         try {
           const stored = localStorage.getItem(`event_food_requires_attendance_${eventId}`);
@@ -98,39 +106,59 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
       </style>
     `;
 
+    const isFoodDesk = deskType === 'food';
+    const isTeaSnacks = isFoodDesk && pageState.refreshmentType === 'tea_snacks';
+    const isNoRefreshments = isFoodDesk && pageState.refreshmentType === 'none';
+
+    const deskIcon = isTeaSnacks ? '☕' : (isFoodDesk ? '🍽️' : '📱');
+    const subtitle = isNoRefreshments
+      ? 'No refreshments are configured for this event.'
+      : (isTeaSnacks
+        ? 'Please enter your registered mobile number to verify and collect your Tea & Snacks.'
+        : 'Please enter your registered mobile number to verify your registration.');
+    const submitBtnText = isNoRefreshments
+      ? 'No Refreshments Configured'
+      : (isTeaSnacks ? 'Verify Tea & Snacks' : buttonText);
+
     app.innerHTML = `
       ${styleBlock}
       <div class="attendance-landing-wrapper">
         <div class="attendance-card">
           
-          <div style="width:60px; height:60px; background:#f3e8ff; color:#7c3aed; font-size:28px; border-radius:18px; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
-            ${deskType === 'food' ? '🍽️' : '📱'}
+          <div style="width:60px; height:60px; background:${isTeaSnacks ? '#eff6ff' : (isFoodDesk ? '#fff7ed' : '#f3e8ff')}; color:${isTeaSnacks ? '#2563eb' : (isFoodDesk ? '#ea580c' : '#7c3aed')}; font-size:28px; border-radius:18px; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
+            ${isNoRefreshments ? '🚫' : deskIcon}
           </div>
 
           <h1 class="attendance-title">
             Welcome to ${pageState.eventTitle}
           </h1>
-          <p style="font-size:13.5px; font-weight:500; color:#64748b; margin-bottom:28px;">
-            Please enter your registered mobile number to verify your registration.
+          <p style="font-size:13.5px; font-weight:500; color:${isNoRefreshments ? '#ef4444' : '#64748b'}; margin-bottom:28px;">
+            ${subtitle}
           </p>
 
-          <form id="attendance-verify-form">
-            <div style="text-align:left; margin-bottom:20px;">
-              <label style="display:block; font-size:13px; font-weight:800; color:#334155; margin-bottom:8px;">
-                Registered Mobile Number <span style="color:#ef4444;">*</span>
-              </label>
-              <div style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#eff6ff;">
-                <span style="padding:14px 16px; background:#eff6ff; color:#475569; font-weight:800; border-right:1px solid #cbd5e1;">+91</span>
-                <input type="text" id="registered-mobile" placeholder="Enter 10-digit mobile number" maxlength="10" required style="flex:1; border:none; padding:14px 16px; font-size:15px; font-weight:700; outline:none; background:#eff6ff; color:#0f172a;" />
-              </div>
+          ${isNoRefreshments ? `
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:14px; padding:16px 18px; color:#b91c1c; font-size:13.5px; font-weight:700; text-align:center;">
+              Refreshment verification is disabled because this event does not provide food or refreshments.
             </div>
+          ` : `
+            <form id="attendance-verify-form">
+              <div style="text-align:left; margin-bottom:20px;">
+                <label style="display:block; font-size:13px; font-weight:800; color:#334155; margin-bottom:8px;">
+                  Registered Mobile Number <span style="color:#ef4444;">*</span>
+                </label>
+                <div style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#eff6ff;">
+                  <span style="padding:14px 16px; background:#eff6ff; color:#475569; font-weight:800; border-right:1px solid #cbd5e1;">+91</span>
+                  <input type="text" id="registered-mobile" placeholder="Enter 10-digit mobile number" maxlength="10" required style="flex:1; border:none; padding:14px 16px; font-size:15px; font-weight:700; outline:none; background:#eff6ff; color:#0f172a;" />
+                </div>
+              </div>
 
-            <div id="attendance-alert">${errorMsg ? `<div class="alert alert-danger" style="margin-bottom:16px;">${errorMsg}</div>` : ''}</div>
+              <div id="attendance-alert">${errorMsg ? `<div class="alert alert-danger" style="margin-bottom:16px;">${errorMsg}</div>` : ''}</div>
 
-            <button type="submit" id="verify-btn" style="width:100%; background:${deskType === 'food' ? '#ea580c' : '#4f46e5'}; color:#ffffff; border:none; padding:15px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px ${deskType === 'food' ? 'rgba(234,88,12,0.35)' : 'rgba(79,70,229,0.35)'};">
-              ${buttonText}
-            </button>
-          </form>
+              <button type="submit" id="verify-btn" style="width:100%; background:${isTeaSnacks ? '#4f46e5' : (isFoodDesk ? '#ea580c' : '#4f46e5')}; color:#ffffff; border:none; padding:15px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px ${isFoodDesk && !isTeaSnacks ? 'rgba(234,88,12,0.35)' : 'rgba(79,70,229,0.35)'};">
+                ${submitBtnText}
+              </button>
+            </form>
+          `}
         </div>
       </div>
     `;
@@ -373,17 +401,25 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
     `;
   }
 
-  // Case 1 — Success Screen (Food Coupon Verified)
+  // Case 1 — Success Screen (Food / Tea & Snacks Coupon Verified)
   function renderFoodSuccessScreen(participant) {
     const regId = participant.registrationId || 'REG-XXXXX';
     const pName = participant.name || participant.participantName || participant.fullName || (participant.participant && participant.participant.fullName) || 'Participant';
+    const eventName = pageState.eventTitle || 'the event';
+    const isTeaSnacks = (pageState.refreshmentType === 'tea_snacks') || (participant.refreshmentType === 'tea_snacks');
+
+    const topIcon = isTeaSnacks ? '☕' : '🍽️';
+    const refreshmentHeading = isTeaSnacks ? 'Enjoy Your Tea!' : 'Enjoy Your Meal!';
+    const refreshmentMessage = isTeaSnacks
+      ? `Thank you for being a part of <strong>${eventName}</strong>. We hope you enjoy the tea and snacks and have a wonderful experience at the event.`
+      : `Thank you for being a part of <strong>${eventName}</strong>. We hope you enjoy the food and have a wonderful experience at the event.`;
 
     app.innerHTML = `
       <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#251b60;">
         <div style="background:#ffffff; border-radius:28px; padding:44px 36px; text-align:center; max-width:520px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.3); border:none;">
           
           <div style="width:60px; height:60px; background:#fff7ed; color:#ea580c; font-size:28px; border-radius:18px; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">
-            🍽️
+            ${topIcon}
           </div>
 
           <h1 style="font-size:26px; font-weight:900; color:#0f172a; margin-bottom:8px; letter-spacing:-0.4px; line-height:1.25;">
@@ -396,11 +432,11 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
 
           <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:20px; padding:28px 24px; text-align:center; margin-bottom:0;">
             <h3 style="font-size:20px; font-weight:800; color:#ea580c; margin-bottom:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
-              <span>🍽️</span> Enjoy Your Meal!
+              <span>${topIcon}</span> ${refreshmentHeading}
             </h3>
 
             <p style="font-size:13.5px; font-weight:600; color:#9a3412; margin:0; line-height:1.6;">
-              Thank you for being a part of <strong>${pageState.eventTitle}</strong>. We hope you enjoy the food and have a wonderful experience at the event.
+              ${refreshmentMessage}
             </p>
           </div>
 
@@ -409,7 +445,13 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
     `;
   }
 
-  function renderFoodAlreadyRedeemedScreen(msg = 'Food coupon already redeemed.') {
+  function renderFoodAlreadyRedeemedScreen(msg = '') {
+    const isTeaSnacks = pageState.refreshmentType === 'tea_snacks';
+    const heading = isTeaSnacks ? 'Tea & Snacks already collected.' : (msg || 'Food coupon already redeemed.');
+    const desc = isTeaSnacks
+      ? `This Tea & Snacks coupon has already been collected for ${pageState.eventTitle}.`
+      : `This food coupon has already been redeemed for ${pageState.eventTitle}.`;
+
     app.innerHTML = `
       <div class="attendance-landing-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#fff7ed;">
         <div style="background:#ffffff; border-radius:24px; padding:40px 32px; text-align:center; max-width:480px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,0.06); border:1px solid #fed7aa;">
@@ -417,10 +459,10 @@ export async function renderAttendanceLandingPage(eventId, deskType = 'attendanc
             ⚠️
           </div>
 
-          <h1 style="font-size:22px; font-weight:900; color:#ef4444; margin-bottom:12px;">Food coupon already redeemed.</h1>
+          <h1 style="font-size:22px; font-weight:900; color:#ef4444; margin-bottom:12px;">${heading}</h1>
 
           <p style="font-size:14px; color:#64748b; font-weight:600; margin-bottom:24px;">
-            This food coupon has already been redeemed for ${pageState.eventTitle}.
+            ${desc}
           </p>
 
           <button id="back-verify-btn" class="btn btn-secondary btn-full" style="width:100%; padding:14px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer;">

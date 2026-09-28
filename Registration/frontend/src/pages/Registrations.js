@@ -254,9 +254,9 @@ export async function renderEventSpecificRegistrations(eventId, filterState = {}
 
     // 4. Food Filter
     if (filters.foodFilter === 'issued' || filters.foodFilter === 'taken') {
-      registrations = registrations.filter(r => r.foodRedeemed === true || r.foodIssued === true || r.foodTaken === true);
+      registrations = registrations.filter(r => r.foodRedeemed === true || r.foodIssued === true || r.foodTaken === true || r.teaSnacksDistributed === true);
     } else if (filters.foodFilter === 'not_issued' || filters.foodFilter === 'not_taken') {
-      registrations = registrations.filter(r => !(r.foodRedeemed === true || r.foodIssued === true || r.foodTaken === true));
+      registrations = registrations.filter(r => !(r.foodRedeemed === true || r.foodIssued === true || r.foodTaken === true || r.teaSnacksDistributed === true));
     }
 
     const badgeText = `Showing ${registrations.length} of ${totalCount} Participants`;
@@ -1134,10 +1134,13 @@ function openRegistrationDetailsModal(reg, formSchema = []) {
   const attendedTime = formatISTTime(reg.attendedAt, reg.attendedTime, reg.attendedDate);
   const kitTime = formatISTTime(reg.kitIssuedAt, reg.kitIssuedTime, reg.kitIssuedDate);
   const foodTime = formatISTTime(reg.foodRedeemedAt, reg.foodRedeemedTime, reg.foodRedeemedDate);
+  const teaTime = formatISTTime(reg.teaSnacksDistributedAt, reg.teaSnacksDistributedTime, reg.teaSnacksDistributedDate);
 
   const attendedStr = reg.attended ? `✅ Present (${attendedTime || 'Verified'})` : '❌ Absent';
   const kitStr = reg.kitIssued ? `✅ Issued (${kitTime || 'Issued'})` : '⏳ Not Issued';
-  const foodStr = reg.foodRedeemed ? `✅ Redeemed (${foodTime || 'Redeemed'})` : (reg.couponIssued ? '🎟️ Coupon Issued' : '⏳ Pending');
+  const foodStr = reg.teaSnacksDistributed
+    ? `☕ Tea Distributed (${teaTime || 'Distributed'})`
+    : (reg.foodRedeemed ? `✅ Redeemed (${foodTime || 'Redeemed'})` : (reg.couponIssued ? '🎟️ Coupon Issued' : '⏳ Pending'));
   
   const appStatus = (reg.approvalStatus || 'PENDING').toUpperCase();
   const statusStr = appStatus === 'APPROVED' ? '✓ APPROVED' : (appStatus === 'REJECTED' ? '✕ REJECTED' : '⏳ PENDING APPROVAL');

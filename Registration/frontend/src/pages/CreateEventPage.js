@@ -30,6 +30,17 @@ export async function renderCreateEventPage(state, eventId = null) {
     }
 
     if (eventObj) {
+      try {
+        const storedRef = localStorage.getItem(`event_refreshment_type_${eventObj._id}`);
+        if (storedRef && (!eventObj.refreshmentType || eventObj.refreshmentType === 'food')) {
+          eventObj.refreshmentType = storedRef;
+        }
+        const storedMeal = localStorage.getItem(`event_food_meal_option_${eventObj._id}`);
+        if (storedMeal && (!eventObj.foodMealOption || eventObj.foodMealOption === 'both')) {
+          eventObj.foodMealOption = storedMeal;
+        }
+      } catch (e) {}
+
       if (eventObj.foodRequiresAttendance === undefined) {
         try {
           const storedPref = localStorage.getItem(`event_food_requires_attendance_${eventObj._id}`);
@@ -372,6 +383,22 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
     }
   });
 
+  // Dynamically toggle Refreshment options based on Refreshment Type selection
+  const refreshmentTypeEl = document.getElementById('ev-refreshment-type');
+  const foodConfigContainer = document.getElementById('ev-food-config-container');
+  const teaSnacksContainer = document.getElementById('ev-tea-snacks-info-container');
+  const noRefreshmentsContainer = document.getElementById('ev-no-refreshments-info-container');
+
+  const updateRefreshmentTypeUI = (val) => {
+    if (foodConfigContainer) foodConfigContainer.style.display = val === 'food' ? 'block' : 'none';
+    if (teaSnacksContainer) teaSnacksContainer.style.display = val === 'tea_snacks' ? 'block' : 'none';
+    if (noRefreshmentsContainer) noRefreshmentsContainer.style.display = val === 'none' ? 'block' : 'none';
+  };
+
+  refreshmentTypeEl?.addEventListener('change', (e) => {
+    updateRefreshmentTypeUI(e.target.value);
+  });
+
   // Immediately persist attendance requirement change to localStorage
   document.getElementById('ev-food-requires-attendance')?.addEventListener('change', (e) => {
     if (eventId) {
@@ -505,16 +532,29 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
         bannerImage: bannerImageDataUrl,
         agendaPdf: agendaPdfDataUrl,
         status: isEdit ? eventObj.status : 'draft',
-        foodRequiresAttendance: foodRequiresAttendanceVal
+        foodRequiresAttendance: foodRequiresAttendanceVal,
+        refreshmentType: document.getElementById('ev-refreshment-type')?.value || 'food',
+        foodMealOption: document.getElementById('ev-meal-options')?.value || 'both'
       };
 
       if (isEdit) {
         await updateEvent(eventObj._id, payload);
         try {
+          localStorage.setItem(`event_refreshment_type_${eventObj._id}`, payload.refreshmentType);
+          localStorage.setItem(`event_food_meal_option_${eventObj._id}`, payload.foodMealOption);
           localStorage.setItem(`event_food_requires_attendance_${eventObj._id}`, String(payload.foodRequiresAttendance));
           if (Array.isArray(state.events)) {
             const found = state.events.find(e => String(e._id) === String(eventObj._id));
-            if (found) found.foodRequiresAttendance = payload.foodRequiresAttendance;
+            if (found) {
+              found.refreshmentType = payload.refreshmentType;
+              found.foodMealOption = payload.foodMealOption;
+              found.foodRequiresAttendance = payload.foodRequiresAttendance;
+            }
+          }
+          if (state.currentEvent && String(state.currentEvent._id) === String(eventObj._id)) {
+            state.currentEvent.refreshmentType = payload.refreshmentType;
+            state.currentEvent.foodMealOption = payload.foodMealOption;
+            state.currentEvent.foodRequiresAttendance = payload.foodRequiresAttendance;
           }
         } catch (e) {}
         notifyEventUpdated(payload.title);
@@ -522,8 +562,11 @@ function compressImage(file, maxWidth = 1200, maxHeight = 675, quality = 0.85) {
       } else {
         const created = await createEvent(payload);
         try {
-          if (created && created._id) {
-            localStorage.setItem(`event_food_requires_attendance_${created._id}`, String(payload.foodRequiresAttendance));
+          const newId = created?._id || created?.id;
+          if (newId) {
+            localStorage.setItem(`event_refreshment_type_${newId}`, payload.refreshmentType);
+            localStorage.setItem(`event_food_meal_option_${newId}`, payload.foodMealOption);
+            localStorage.setItem(`event_food_requires_attendance_${newId}`, String(payload.foodRequiresAttendance));
           }
         } catch (e) {}
         notifyEventCreated(payload.title);

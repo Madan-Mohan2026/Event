@@ -62,6 +62,9 @@ export interface IEvent extends Document {
   foodDeskUrl?: string;
   foodQrCodeDataUrl?: string;
   foodRequiresAttendance?: boolean;
+  refreshmentType?: 'none' | 'food' | 'tea_snacks';
+  teaSnacksCount: number;
+  foodMealOption?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -128,7 +131,10 @@ const eventSchema = new Schema<IEvent>(
     kitQrCodeDataUrl: { type: String, default: '' },
     foodDeskUrl: { type: String, default: '' },
     foodQrCodeDataUrl: { type: String, default: '' },
-    foodRequiresAttendance: { type: Boolean, default: true }
+    foodRequiresAttendance: { type: Boolean, default: true },
+    refreshmentType: { type: String, enum: ['none', 'food', 'tea_snacks'], default: 'food' },
+    teaSnacksCount: { type: Number, default: 0 },
+    foodMealOption: { type: String, default: 'both' }
   },
   {
     timestamps: true

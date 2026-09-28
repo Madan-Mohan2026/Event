@@ -71,7 +71,9 @@ export async function handleRoute(state) {
       const { renderKits } = await loadRouteModule(() => import('../pages/Kits.js'));
       return renderKits(eventId);
     }
-    if (baseHash.startsWith('#food-checkin/') || baseHash.startsWith('#food/') || baseHash.startsWith('#food-counter/')) {
+    if (baseHash.startsWith('#food-checkin/') || baseHash.startsWith('#food/') || baseHash.startsWith('#food-counter/') ||
+        baseHash.startsWith('#tea-checkin/') || baseHash.startsWith('#tea/') || baseHash.startsWith('#tea-counter/') ||
+        baseHash.startsWith('#refreshment-checkin/') || baseHash.startsWith('#refreshment-counter/')) {
       const eventId = baseHash.split('/')[1];
       const { renderAttendancePage } = await loadRouteModule(() => import('../pages/Attendance.js'));
       return renderAttendancePage(eventId, 'food');

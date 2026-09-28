@@ -7,7 +7,7 @@ export interface RecordEventActionParams {
   registrationId?: string;
   participantName?: string;
   registeredMobileNumber?: string;
-  actionType: 'Attendance' | 'Spot Registration' | 'Kit Issued' | 'Food Redeemed' | 'Mobile Verification' | 'Kit Scan' | 'Food Scan';
+  actionType: 'Attendance' | 'Spot Registration' | 'Kit Issued' | 'Food Redeemed' | 'Mobile Verification' | 'Kit Scan' | 'Food Scan' | 'Tea & Snacks Redeemed' | 'Tea & Snacks Scan';
   actionStatus: 'Success' | 'Failed' | 'Already Issued' | 'Already Redeemed' | 'Registration Not Found' | 'Invalid Mobile' | 'Duplicate Scan';
   adminId?: string | Types.ObjectId;
   adminUsername?: string;

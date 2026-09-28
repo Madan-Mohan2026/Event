@@ -269,7 +269,7 @@ export function exportToExcelCSV(records = [], filename = 'Exported_Data.csv') {
     r.category || 'General',
     r.attended ? 'Checked In' : 'Absent',
     r.kitIssued ? 'Issued' : 'Pending',
-    (r.foodRedeemed || r.foodIssued || r.foodTaken || r.couponIssued) ? 'Issued' : 'Not Issued'
+    (r.foodRedeemed || r.foodIssued || r.foodTaken || r.couponIssued || r.teaSnacksDistributed) ? 'Issued' : 'Not Issued'
   ]);
 
   const csvContent = '\uFEFF' + headers.map(escapeCSV).join(',') + '\n' + rows.map(row => row.map(escapeCSV).join(',')).join('\n');
@@ -345,6 +345,7 @@ export function exportAdminRegistrationsToCSV(records = [], dashboardMetrics = {
     `"Spot Registrations","${dashboardMetrics.spotRegistrations || records.filter(r => r.category === 'Spot' || r.spotRegistration).length || 0}"`,
     `"Kit Distributed","${dashboardMetrics.kitsIssued || records.filter(r => r.kitIssued).length || 0}"`,
     `"Food Redeemed","${dashboardMetrics.foodRedeemed || records.filter(r => r.foodRedeemed || r.couponIssued).length || 0}"`,
+    `"Tea & Snacks Distributed","${dashboardMetrics.teaSnacksDistributed || records.filter(r => r.teaSnacksDistributed).length || 0}"`,
     `""`
   ].join('\n');
 
@@ -357,7 +358,7 @@ export function exportAdminRegistrationsToCSV(records = [], dashboardMetrics = {
     'Attendance Status',
     'Spot Registration',
     'Kit Distribution',
-    'Food Coupon'
+    'Refreshment / Food'
   ];
 
   const escapeCSV = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
@@ -373,7 +374,9 @@ export function exportAdminRegistrationsToCSV(records = [], dashboardMetrics = {
     const attendanceStatus = r.attended ? `Attended (${r.attendedTime || 'Yes'})` : 'Absent';
     const spotStatus = (r.spotRegistration || r.category === 'Spot') ? 'Yes (Spot Walk-in)' : 'No (Pre-registered)';
     const kitStatus = r.kitIssued ? `Issued (${r.kitIssuedTime || 'Yes'})` : 'Pending';
-    const foodStatus = (r.foodRedeemed || r.couponIssued) ? `Redeemed (${r.foodRedeemedTime || 'Yes'})` : 'Pending';
+    const foodStatus = r.teaSnacksDistributed 
+      ? `Tea/Snacks Distributed (${r.teaSnacksDistributedTime || 'Yes'})`
+      : ((r.foodRedeemed || r.couponIssued) ? `Redeemed (${r.foodRedeemedTime || 'Yes'})` : 'Pending');
 
     return [
       regId,

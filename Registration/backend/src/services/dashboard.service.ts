@@ -10,7 +10,8 @@ export async function fetchDashboardCounts() {
     spotRegistrations,
     attendanceCount,
     kitsIssued,
-    couponsIssued
+    couponsIssued,
+    teaSnacksDistributed
   ] = await Promise.all([
     Event.countDocuments(),
     Event.countDocuments({ status: 'published' }),
@@ -19,7 +20,8 @@ export async function fetchDashboardCounts() {
     Registration.countDocuments({ category: 'Spot' }),
     Registration.countDocuments({ attended: true }),
     Registration.countDocuments({ kitIssued: true }),
-    Registration.countDocuments({ $or: [{ foodRedeemed: true }, { couponIssued: true }] })
+    Registration.countDocuments({ $or: [{ foodRedeemed: true }, { couponIssued: true }] }),
+    Registration.countDocuments({ teaSnacksDistributed: true })
   ]);
 
   return {
@@ -30,6 +32,7 @@ export async function fetchDashboardCounts() {
     spotRegistrations,
     attendanceCount,
     kitsIssued,
-    couponsIssued
+    couponsIssued,
+    teaSnacksDistributed
   };
 }

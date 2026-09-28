@@ -65,8 +65,10 @@ export const getAdminDashboard = async (req: AuthRequest, res: Response): Promis
         todayAttendance: 0,
         kitsIssued: 0,
         foodRedeemed: 0,
+        teaSnacksDistributed: 0,
         pendingKits: 0,
         pendingFood: 0,
+        pendingTeaSnacks: 0,
         todaySpotRegistrations: 0,
         spotRegistrations: 0,
         liveVisitors: 0,
@@ -84,22 +86,28 @@ export const getAdminDashboard = async (req: AuthRequest, res: Response): Promis
       spotRegistrations,
       kitsIssued,
       foodRedeemed,
+      teaSnacksDistributed,
       pendingKits,
       pendingFood,
-      dbLogs
+      pendingTeaSnacks,
+      dbLogs,
+      targetEventDoc
     ] = await Promise.all([
       Registration.countDocuments({ eventId: { $in: eventIds } }),
       Registration.countDocuments({ eventId: { $in: eventIds }, attended: true }),
       Registration.countDocuments({ eventId: { $in: eventIds }, category: 'Spot' }),
       Registration.countDocuments({ eventId: { $in: eventIds }, kitIssued: true }),
       Registration.countDocuments({ eventId: { $in: eventIds }, $or: [{ foodRedeemed: true }, { couponIssued: true }] }),
+      Registration.countDocuments({ eventId: { $in: eventIds }, teaSnacksDistributed: true }),
       Registration.countDocuments({ eventId: { $in: eventIds }, attended: true, kitIssued: false }),
       Registration.countDocuments({ eventId: { $in: eventIds }, attended: true, $or: [{ foodRedeemed: false }, { couponIssued: false }] }),
+      Registration.countDocuments({ eventId: { $in: eventIds }, attended: true, teaSnacksDistributed: { $ne: true } }),
       EventLog.find(eventLogFilter)
         .populate('eventId', 'title')
         .sort({ dateTime: -1, createdAt: -1 })
         .limit(15)
-        .lean()
+        .lean(),
+      Event.findById(reqEventId || eventIds[0]).select('refreshmentType title').lean()
     ]);
 
     // Live Visitors (Active gate connections + recent check-ins)
@@ -128,8 +136,11 @@ export const getAdminDashboard = async (req: AuthRequest, res: Response): Promis
       spotRegistrations,
       kitsIssued,
       foodRedeemed,
+      teaSnacksDistributed,
       pendingKits,
       pendingFood,
+      pendingTeaSnacks,
+      refreshmentType: (targetEventDoc as any)?.refreshmentType || 'food',
       liveVisitors,
       recentActivities
     });

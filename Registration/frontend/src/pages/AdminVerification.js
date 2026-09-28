@@ -128,6 +128,96 @@ export async function renderAdminParticipantVerification() {
     const attendedTimeStr = formatISTTime(p.attendedAt, p.attendedTime, p.attendedDate);
     const kitIssuedTimeStr = formatISTTime(p.kitIssuedAt, p.kitIssuedTime, p.kitIssuedDate);
     const foodRedeemedTimeStr = formatISTTime(p.foodRedeemedAt, p.foodRedeemedTime, p.foodRedeemedDate);
+    const teaSnacksDistributedTimeStr = formatISTTime(p.teaSnacksDistributedAt, p.teaSnacksDistributedTime, p.teaSnacksDistributedDate);
+    let currentRefreshmentType = p.refreshmentType || state.currentEvent?.refreshmentType;
+    try {
+      const targetId = p.eventId || state.currentEvent?._id || localStorage.getItem('current_event_id');
+      if (targetId) {
+        const storedRef = localStorage.getItem(`event_refreshment_type_${targetId}`);
+        if (storedRef && (!currentRefreshmentType || currentRefreshmentType === 'food')) {
+          currentRefreshmentType = storedRef;
+        }
+      }
+    } catch (e) {}
+    if (!currentRefreshmentType) currentRefreshmentType = 'food';
+
+    let refreshmentCardHtml = '';
+    if (currentRefreshmentType === 'tea_snacks') {
+      refreshmentCardHtml = `
+        <!-- 5. Tea & Snacks QR Card -->
+        <div style="background:#ffffff; border:1.5px solid ${p.teaSnacksDistributed ? '#fed7aa' : '#e2e8f0'}; border-radius:18px; padding:18px 24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); text-align:left; margin-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:18px;">☕</span>
+              <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">Tea & Snacks QR</h3>
+            </div>
+            <span style="background:${p.teaSnacksDistributed ? '#ffedd5' : '#f1f5f9'}; color:${p.teaSnacksDistributed ? '#c2410c' : '#64748b'}; border:1px solid ${p.teaSnacksDistributed ? '#fdba74' : '#cbd5e1'}; font-size:12px; font-weight:800; padding:5px 14px; border-radius:20px; display:inline-flex; align-items:center; gap:6px;">
+              ${p.teaSnacksDistributed ? '✅ Tea & Snacks Distributed' : '⏳ Distribution Pending'}
+            </span>
+          </div>
+          ${p.teaSnacksDistributed ? `
+            <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:14px 16px; margin-top:14px; display:flex; flex-direction:column; gap:10px; font-size:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span style="color:#9a3412; font-weight:700;">Registration ID:</span>
+                <strong style="color:#c2410c; font-weight:800; font-family:monospace;">${regId}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span style="color:#9a3412; font-weight:700;">Refreshment Type:</span>
+                <strong style="color:#9a3412; font-weight:800;">Tea & Snacks</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; border-top:1px dashed #fed7aa; margin-top:2px; padding-top:8px;">
+                <span style="color:#9a3412; font-weight:700;">Distributed At:</span>
+                <strong style="color:#c2410c; font-weight:800;">${teaSnacksDistributedTimeStr || 'Distributed'}</strong>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    } else if (currentRefreshmentType === 'none') {
+      refreshmentCardHtml = `
+        <!-- 5. No Refreshments Card -->
+        <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:18px; padding:18px 24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); text-align:left; margin-bottom:4px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:22px;">🚫</span>
+            <div>
+              <h3 style="font-size:15px; font-weight:800; color:#475569; margin:0;">No Refreshments Configured</h3>
+              <p style="font-size:12px; color:#64748b; margin:2px 0 0 0; font-weight:600;">No food or tea/snacks verification is configured for this event.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      refreshmentCardHtml = `
+        <!-- 5. Food Coupon Card -->
+        <div style="background:#ffffff; border:1.5px solid ${p.foodRedeemed ? '#fed7aa' : '#e2e8f0'}; border-radius:18px; padding:18px 24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); text-align:left; margin-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:18px;">🍽️</span>
+              <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">Food Coupon</h3>
+            </div>
+            <span style="background:${p.foodRedeemed ? '#ffedd5' : '#f1f5f9'}; color:${p.foodRedeemed ? '#c2410c' : '#64748b'}; border:1px solid ${p.foodRedeemed ? '#fdba74' : '#cbd5e1'}; font-size:12px; font-weight:800; padding:5px 14px; border-radius:20px; display:inline-flex; align-items:center; gap:6px;">
+              ${p.foodRedeemed ? '✅ Food Coupon Redeemed' : '⏳ Coupon Pending'}
+            </span>
+          </div>
+          ${p.foodRedeemed ? `
+            <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:14px 16px; margin-top:14px; display:flex; flex-direction:column; gap:10px; font-size:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span style="color:#9a3412; font-weight:700;">Coupon Number:</span>
+                <strong style="color:#c2410c; font-weight:800; font-family:monospace;">${regId}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span style="color:#9a3412; font-weight:700;">Meal Type:</span>
+                <strong style="color:#9a3412; font-weight:800;">Standard Veg / Refreshments</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; border-top:1px dashed #fed7aa; margin-top:2px; padding-top:8px;">
+                <span style="color:#9a3412; font-weight:700;">Redeemed At:</span>
+                <strong style="color:#c2410c; font-weight:800;">${foodRedeemedTimeStr || 'Redeemed'}</strong>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
 
     container.innerHTML = `
       <div class="verify-results-wrapper" style="max-width:680px; width:100%; margin:0 auto; display:flex; flex-direction:column; gap:16px; padding-bottom:40px;">
@@ -213,34 +303,7 @@ export async function renderAdminParticipantVerification() {
           ` : ''}
         </div>
 
-        <!-- 5. Food Coupon Card -->
-        <div style="background:#ffffff; border:1.5px solid ${p.foodRedeemed ? '#fed7aa' : '#e2e8f0'}; border-radius:18px; padding:18px 24px; box-shadow:0 2px 10px rgba(0,0,0,0.02); text-align:left; margin-bottom:4px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="font-size:18px;">🍽️</span>
-              <h3 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">Food Coupon</h3>
-            </div>
-            <span style="background:${p.foodRedeemed ? '#ffedd5' : '#f1f5f9'}; color:${p.foodRedeemed ? '#c2410c' : '#64748b'}; border:1px solid ${p.foodRedeemed ? '#fdba74' : '#cbd5e1'}; font-size:12px; font-weight:800; padding:5px 14px; border-radius:20px; display:inline-flex; align-items:center; gap:6px;">
-              ${p.foodRedeemed ? '✅ Food Coupon Redeemed' : '⏳ Coupon Pending'}
-            </span>
-          </div>
-          ${p.foodRedeemed ? `
-            <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:14px 16px; margin-top:14px; display:flex; flex-direction:column; gap:10px; font-size:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                <span style="color:#9a3412; font-weight:700;">Coupon Number:</span>
-                <strong style="color:#c2410c; font-weight:800; font-family:monospace;">${regId}</strong>
-              </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                <span style="color:#9a3412; font-weight:700;">Meal Type:</span>
-                <strong style="color:#9a3412; font-weight:800;">Standard Veg / Refreshments</strong>
-              </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; border-top:1px dashed #fed7aa; margin-top:2px; padding-top:8px;">
-                <span style="color:#9a3412; font-weight:700;">Redeemed At:</span>
-                <strong style="color:#c2410c; font-weight:800;">${foodRedeemedTimeStr || 'Redeemed'}</strong>
-              </div>
-            </div>
-          ` : ''}
-        </div>
+        ${refreshmentCardHtml}
 
         <!-- 6. Search Another Participant Button -->
         <button type="button" id="btn-search-again-details" style="width:100%; background:linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); color:#ffffff; border:none; padding:16px; border-radius:16px; font-size:15px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 14px rgba(79,70,229,0.35); margin-top:8px; margin-bottom:48px; transition:all 0.2s;">

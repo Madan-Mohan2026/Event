@@ -1135,7 +1135,7 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
           ...(/^[0-9a-fA-F]{24}$/.test(mobile.trim()) ? [{ _id: mobile.trim() }] : [])
         ]
       }),
-      (eventId && eventId.length === 24) ? Event.findById(eventId).select('title').lean().catch(() => null) : Promise.resolve(null)
+      (eventId && eventId.length === 24) ? Event.findById(eventId).select('title refreshmentType').lean().catch(() => null) : Promise.resolve(null)
     ]);
 
     let matchedRegistration = foundReg;
@@ -1247,33 +1247,79 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
       }
     }
 
-    if (deskType === 'food') {
+    let targetEventDoc = eventDoc;
+    if (!targetEventDoc && matchedRegistration.eventId) {
+      targetEventDoc = await Event.findById(matchedRegistration.eventId).select('title refreshmentType').lean().catch(() => null);
+    }
+    const currentRefreshmentType = (targetEventDoc as any)?.refreshmentType || 'food';
+
+    if (deskType === 'food' || deskType === 'tea' || deskType === 'tea_snacks' || deskType === 'refreshment') {
+      if (currentRefreshmentType === 'none') {
+        res.status(400).json({
+          success: false,
+          error: 'No refreshments are configured for this event.',
+          message: 'No refreshments are configured for this event.'
+        });
+        return;
+      }
+
       const attendanceRequired = req.body.foodRequiresAttendance !== undefined
         ? (req.body.foodRequiresAttendance === true || req.body.foodRequiresAttendance === 'true')
         : await isFoodAttendanceRequired(matchedRegistration.eventId || eventId);
+
       if (attendanceRequired && !matchedRegistration.attended) {
         recordEventAction({
           eventId: matchedRegistration.eventId || eventId,
           registeredMobileNumber: mobile.trim(),
-          actionType: 'Food Redeemed',
+          actionType: currentRefreshmentType === 'tea_snacks' ? 'Tea & Snacks Redeemed' : 'Food Redeemed',
           actionStatus: 'Failed',
-          details: 'Food redemption blocked: Attendance not verified yet.'
+          details: `${currentRefreshmentType === 'tea_snacks' ? 'Tea & Snacks' : 'Food'} redemption blocked: Attendance not verified yet.`
         });
         res.status(400).json({
           success: false,
           requiresAttendance: true,
-          error: 'Attendance Not Recorded! Please complete your Event Entrance Check-in first before redeeming your food coupon.'
+          error: `Attendance Not Recorded! Please complete your Event Entrance Check-in first before redeeming ${currentRefreshmentType === 'tea_snacks' ? 'tea & snacks' : 'your food coupon'}.`
         });
         return;
       }
-      if (!matchedRegistration.foodRedeemed) {
+
+      if (currentRefreshmentType === 'tea_snacks') {
+        if (matchedRegistration.teaSnacksDistributed) {
+          res.status(400).json({
+            success: false,
+            alreadyRedeemed: true,
+            error: 'Tea & Snacks coupon already redeemed.'
+          });
+          return;
+        }
+        matchedRegistration.teaSnacksDistributed = true;
+        matchedRegistration.teaSnacksDistributedAt = now;
+        matchedRegistration.teaSnacksDistributedDate = formattedDate;
+        matchedRegistration.teaSnacksDistributedTime = formattedTime;
+        matchedRegistration.teaSnacksDistributedBy = 'Mobile Tea & Snacks Counter Desk';
+        matchedRegistration.teaSnacksQrExpired = true;
+        updated = true;
+
+        Event.findByIdAndUpdate(matchedRegistration.eventId || eventId, { $inc: { teaSnacksCount: 1 } }).catch(() => null);
+      } else {
+        if (matchedRegistration.foodRedeemed) {
+          res.status(400).json({
+            success: false,
+            alreadyRedeemed: true,
+            error: 'Food coupon already redeemed.'
+          });
+          return;
+        }
         matchedRegistration.foodRedeemed = true;
         matchedRegistration.couponIssued = true;
         matchedRegistration.foodRedeemedAt = now;
         matchedRegistration.foodRedeemedDate = formattedDate;
         matchedRegistration.foodRedeemedTime = formattedTime;
         matchedRegistration.foodRedeemedBy = 'Mobile Food Counter Desk';
+        matchedRegistration.foodQrExpired = true;
         updated = true;
+
+        Event.findByIdAndUpdate(matchedRegistration.eventId || eventId, { $inc: { foodCount: 1 } }).catch(() => null);
       }
     }
 
@@ -1364,10 +1410,15 @@ export const verifyParticipantMobile = async (req: Request, res: Response): Prom
         kitIssuedAt: matchedRegistration.kitIssuedAt,
         kitIssuedDate: matchedRegistration.kitIssuedDate,
         kitIssuedTime: matchedRegistration.kitIssuedTime || (matchedRegistration.kitIssuedAt ? new Date(matchedRegistration.kitIssuedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
+        refreshmentType: currentRefreshmentType,
         foodRedeemed: !!(matchedRegistration.foodRedeemed || matchedRegistration.couponIssued),
         foodRedeemedAt: matchedRegistration.foodRedeemedAt,
         foodRedeemedDate: matchedRegistration.foodRedeemedDate,
         foodRedeemedTime: matchedRegistration.foodRedeemedTime || (matchedRegistration.foodRedeemedAt ? new Date(matchedRegistration.foodRedeemedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
+        teaSnacksDistributed: !!matchedRegistration.teaSnacksDistributed,
+        teaSnacksDistributedAt: matchedRegistration.teaSnacksDistributedAt,
+        teaSnacksDistributedDate: matchedRegistration.teaSnacksDistributedDate,
+        teaSnacksDistributedTime: matchedRegistration.teaSnacksDistributedTime || (matchedRegistration.teaSnacksDistributedAt ? new Date(matchedRegistration.teaSnacksDistributedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
         kitQr: matchedRegistration.kitQrCodeDataUrl ? {
           token: matchedRegistration.kitQrToken,
           dataUrl: matchedRegistration.kitQrCodeDataUrl
@@ -2027,14 +2078,14 @@ export const verifyFoodQr = async (req: Request, res: Response): Promise<void> =
     const payload = decryptToken(cleanToken);
 
     if (payload && payload.type === 'FOOD_COUPON' && payload.registrationId) {
-      registration = await Registration.findById(payload.registrationId).populate('eventId', 'title foodRequiresAttendance');
+      registration = await Registration.findById(payload.registrationId).populate('eventId', 'title foodRequiresAttendance refreshmentType');
     } else {
       registration = await Registration.findOne({
         $or: [
           { foodQrToken: cleanToken },
           { _id: cleanToken.length === 24 ? cleanToken : null }
         ]
-      }).populate('eventId', 'title foodRequiresAttendance');
+      }).populate('eventId', 'title foodRequiresAttendance refreshmentType');
     }
 
     if (!registration) {
@@ -2066,7 +2117,17 @@ export const verifyFoodQr = async (req: Request, res: Response): Promise<void> =
     const photo = regData.photo || regData.profilePhoto || '';
     const shortRegId = registration.registrationId || `#REG-${String(registration._id).substring(18).toUpperCase()}`;
     const eventTitle = (registration.eventId as any)?.title || 'Event';
-    const isAlreadyRedeemed = registration.foodRedeemed || registration.foodQrExpired;
+    const eventRefreshmentType = (registration.eventId as any)?.refreshmentType || 'food';
+
+    if (eventRefreshmentType === 'none') {
+      res.status(400).json({ error: 'No refreshments are configured for this event.' });
+      return;
+    }
+
+    const isTeaSnacks = eventRefreshmentType === 'tea_snacks';
+    const isAlreadyRedeemed = isTeaSnacks
+      ? (registration.teaSnacksDistributed || registration.teaSnacksQrExpired)
+      : (registration.foodRedeemed || registration.foodQrExpired);
 
     const attendanceRequired = await isFoodAttendanceRequired(registration.eventId);
     if (attendanceRequired && !registration.attended) {
@@ -2184,6 +2245,91 @@ export const redeemFoodCoupon = async (req: Request, res: Response): Promise<voi
         success: false,
         requiresAttendance: true,
         error: 'Attendance Not Recorded! Participant must complete Event Entrance Check-in first before redeeming food coupon.'
+      });
+      return;
+    }
+
+    const eventDoc = await Event.findById(registration.eventId).select('refreshmentType title');
+    const eventRefreshmentType = eventDoc?.refreshmentType || 'food';
+
+    if (eventRefreshmentType === 'none') {
+      res.status(400).json({ error: 'No refreshments are configured for this event.' });
+      return;
+    }
+
+    if (eventRefreshmentType === 'tea_snacks') {
+      if (registration.teaSnacksDistributed || registration.teaSnacksQrExpired) {
+        const redeemedTime = registration.teaSnacksDistributedDate 
+          ? `${registration.teaSnacksDistributedDate} ${registration.teaSnacksDistributedTime}`
+          : 'earlier';
+
+        await recordEventAction({
+          eventId: registration.eventId,
+          registrationId: shortRegId,
+          participantName: registration.participantName || 'Participant',
+          registeredMobileNumber: registration.participantPhone || '',
+          actionType: 'Tea & Snacks Redeemed',
+          actionStatus: 'Duplicate Scan',
+          adminId: (req as AuthRequest).user?.id,
+          adminUsername: customRedeemedBy || (req as AuthRequest).user?.username || 'Refreshment Staff',
+          details: `Duplicate Tea & Snacks redemption prevented. Already redeemed on ${redeemedTime} by ${registration.teaSnacksDistributedBy || 'Staff'}.`
+        });
+
+        res.status(400).json({
+          error: 'Tea & Snacks Coupon Already Redeemed.',
+          alreadyRedeemed: true,
+          teaSnacksDistributedDate: registration.teaSnacksDistributedDate,
+          teaSnacksDistributedTime: registration.teaSnacksDistributedTime,
+          teaSnacksDistributedBy: registration.teaSnacksDistributedBy,
+          message: `Tea & Snacks Coupon Already Redeemed on ${redeemedTime} by ${registration.teaSnacksDistributedBy || 'Staff'}.`
+        });
+        return;
+      }
+
+      const now = new Date();
+      const redeemedDate = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const redeemedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const redeemedBy = customRedeemedBy || (req as AuthRequest).user?.username || 'Refreshment Staff';
+
+      registration.teaSnacksDistributed = true;
+      registration.teaSnacksDistributedAt = now;
+      registration.teaSnacksDistributedDate = redeemedDate;
+      registration.teaSnacksDistributedTime = redeemedTime;
+      registration.teaSnacksDistributedBy = redeemedBy;
+      registration.teaSnacksQrExpired = true;
+
+      await registration.save();
+      Event.findByIdAndUpdate(registration.eventId, { $inc: { teaSnacksCount: 1 } }).catch(() => null);
+
+      const regData = registration.formData instanceof Map 
+        ? Object.fromEntries(registration.formData) 
+        : (registration.formData || {});
+      const participantName = regData.name || regData.fullName || regData['Full Name'] || registration.participantName || 'Participant';
+
+      await recordEventAction({
+        eventId: registration.eventId,
+        registrationId: shortRegId,
+        participantName,
+        registeredMobileNumber: registration.participantPhone || '',
+        actionType: 'Tea & Snacks Redeemed',
+        actionStatus: 'Success',
+        adminId: (req as AuthRequest).user?.id,
+        adminUsername: redeemedBy,
+        details: `Tea & Snacks coupon redeemed successfully by ${redeemedBy}`
+      });
+
+      broadcastRealtimeEvent('STATS_UPDATED', { action: 'TEA_SNACKS_DISTRIBUTED', eventId: registration.eventId, registrationId: registration._id });
+
+      res.status(200).json({
+        success: true,
+        message: `Tea & Snacks Coupon Redeemed successfully for ${participantName}!`,
+        participantName,
+        refreshmentType: 'tea_snacks',
+        teaSnacksDistributed: true,
+        teaSnacksDistributedDate: redeemedDate,
+        teaSnacksDistributedTime: redeemedTime,
+        teaSnacksDistributedBy: redeemedBy,
+        teaSnacksQrExpired: true
       });
       return;
     }
@@ -2552,6 +2698,97 @@ export const scanFood = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    const eventDoc = await Event.findById(registration.eventId).select('refreshmentType title');
+    const eventRefreshmentType = eventDoc?.refreshmentType || 'food';
+
+    if (eventRefreshmentType === 'none') {
+      res.status(400).json({
+        error: 'No refreshments are configured for this event.',
+        status: 'NO_REFRESHMENTS'
+      });
+      return;
+    }
+
+    if (eventRefreshmentType === 'tea_snacks') {
+      if (registration.teaSnacksDistributed || registration.teaSnacksQrExpired) {
+        console.log('[DEBUG QR SCAN]: Tea & Snacks Already Collected:', registration._id);
+        await recordEventAction({
+          eventId: registration.eventId,
+          registrationId: shortRegId,
+          participantName: registration.participantName || 'Participant',
+          registeredMobileNumber: registration.participantPhone || '',
+          actionType: 'Tea & Snacks Redeemed',
+          actionStatus: 'Duplicate Scan',
+          adminId: authReq.user?.id,
+          adminUsername: redeemedBy || authReq.user?.username || 'Staff',
+          details: `Duplicate Tea & Snacks scan attempt. Already collected at ${registration.teaSnacksDistributedDate || ''} ${registration.teaSnacksDistributedTime || ''} by ${registration.teaSnacksDistributedBy || 'Staff'}`
+        });
+        res.status(400).json({
+          error: 'Tea & Snacks Already Collected',
+          status: 'ALREADY_ISSUED',
+          alreadyIssued: true,
+          collectedAt: `${registration.teaSnacksDistributedDate || ''} ${registration.teaSnacksDistributedTime || ''}`.trim(),
+          collectedBy: registration.teaSnacksDistributedBy || 'Staff'
+        });
+        return;
+      }
+
+      const now = new Date();
+      const foodRedeemedDate = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const foodRedeemedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const staffUser = redeemedBy || (authReq.user?.username) || 'Refreshment Staff';
+
+      registration.teaSnacksDistributed = true;
+      registration.teaSnacksDistributedAt = now;
+      registration.teaSnacksDistributedDate = foodRedeemedDate;
+      registration.teaSnacksDistributedTime = foodRedeemedTime;
+      registration.teaSnacksDistributedBy = staffUser;
+      registration.teaSnacksQrExpired = true;
+
+      await registration.save();
+      Event.findByIdAndUpdate(registration.eventId, { $inc: { teaSnacksCount: 1 } }).catch(() => null);
+
+      console.log('[DEBUG QR SCAN]: Tea & Snacks Collected Successfully:', registration._id);
+
+      const regData = registration.formData instanceof Map 
+        ? Object.fromEntries(registration.formData) 
+        : (registration.formData || {});
+      const participantName = regData.name || regData.fullName || regData['Full Name'] || registration.participantName || 'Participant';
+
+      await recordEventAction({
+        eventId: registration.eventId,
+        registrationId: shortRegId,
+        participantName,
+        registeredMobileNumber: registration.participantPhone || '',
+        actionType: 'Tea & Snacks Redeemed',
+        actionStatus: 'Success',
+        adminId: authReq.user?.id,
+        adminUsername: staffUser,
+        details: `Tea & Snacks distributed successfully via scanner by ${staffUser}`
+      });
+
+      broadcastRealtimeEvent('STATS_UPDATED', {
+        action: 'TEA_SNACKS_DISTRIBUTED',
+        eventId: registration.eventId,
+        registrationId: registration._id
+      });
+
+      res.status(200).json({
+        success: true,
+        status: 'Success',
+        message: `Tea & Snacks Distributed successfully for ${participantName}`,
+        participantName,
+        registrationId: registration._id,
+        refreshmentType: 'tea_snacks',
+        teaSnacksDistributed: true,
+        teaSnacksDistributedAt: now,
+        teaSnacksDistributedDate: foodRedeemedDate,
+        teaSnacksDistributedTime: foodRedeemedTime,
+        teaSnacksDistributedBy: staffUser
+      });
+      return;
+    }
+
     if (registration.foodRedeemed || registration.foodQrExpired) {
       console.log('[DEBUG QR SCAN]: Food Coupon Already Redeemed:', registration._id);
       await recordEventAction({
@@ -2737,9 +2974,11 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
 
     // Populate event title if missing
     let eventTitle = registration.eventTitle || 'Event';
-    if (!registration.eventTitle && registration.eventId) {
-      const ev = await Event.findById(registration.eventId).select('title');
+    let eventRefreshmentType = 'food';
+    if (registration.eventId) {
+      const ev = await Event.findById(registration.eventId).select('title refreshmentType');
       if (ev?.title) eventTitle = ev.title;
+      if (ev?.refreshmentType) eventRefreshmentType = ev.refreshmentType;
     }
 
     const formDataObj: any = registration.formData instanceof Map ? Object.fromEntries(registration.formData) : (registration.formData || {});
@@ -2770,6 +3009,10 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
       ? `${formatDateStr(registration.foodRedeemedAt || registration.foodIssuedAt)} at ${formatTimeStr(registration.foodRedeemedAt || registration.foodIssuedAt)}`
       : (registration.foodRedeemedTime ? `${registration.foodRedeemedDate || ''} at ${registration.foodRedeemedTime}` : '');
 
+    const teaSnacksDistributedAtFormatted = registration.teaSnacksDistributedAt
+      ? `${formatDateStr(registration.teaSnacksDistributedAt)} at ${formatTimeStr(registration.teaSnacksDistributedAt)}`
+      : (registration.teaSnacksDistributedTime ? `${registration.teaSnacksDistributedDate || ''} at ${registration.teaSnacksDistributedTime}` : '');
+
     const mealType = formDataObj?.mealType || formDataObj?.foodType || formDataObj?.meal || 'Standard Veg / Refreshments';
     const couponNumber = registration.registrationId || (registration._id ? String(registration._id).slice(-8).toUpperCase() : 'CPN-001');
 
@@ -2783,6 +3026,7 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
         registrationId: registration.registrationId || String(registration._id),
         eventTitle,
         eventId: String(registration.eventId),
+        refreshmentType: eventRefreshmentType,
         registeredAt: registration.registeredAt,
         registeredAtFormatted,
         
@@ -2810,6 +3054,13 @@ export const lookupParticipantForVerification = async (req: Request, res: Respon
         foodRedeemedAt: registration.foodRedeemedAt || registration.foodIssuedAt,
         foodRedeemedAtFormatted,
         foodRedeemedBy: registration.foodRedeemedBy || registration.foodIssuedBy || '',
+        
+        // Tea & Snacks Status
+        teaSnacksDistributed: !!registration.teaSnacksDistributed,
+        teaSnacksDistributedAt: registration.teaSnacksDistributedAt,
+        teaSnacksDistributedAtFormatted,
+        teaSnacksDistributedBy: registration.teaSnacksDistributedBy || '',
+
         couponNumber,
         mealType
       }
@@ -3473,7 +3724,8 @@ export const sendBulkEmailController = async (req: AuthRequest, res: Response): 
 export const bulkImportParticipants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const eventId = req.params.eventId || req.body.eventId;
-    const { participants, defaultStatus, defaultApprovalStatus = 'APPROVED', sendEmail = false } = req.body;
+    const { participants, defaultStatus, defaultApprovalStatus = 'APPROVED', sendEmail: _sendEmail = false } = req.body;
+    void _sendEmail;
     const finalDefaultStatus = defaultStatus || defaultApprovalStatus;
 
     if (!isValidObjectId(eventId)) {

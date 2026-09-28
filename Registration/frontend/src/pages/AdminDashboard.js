@@ -170,17 +170,6 @@ export async function renderAdminDashboard() {
           <div style="font-size:12px;color:#94a3b8;font-weight:600;">Kits issued by staff</div>
         </div>
 
-        <div id="ops-card-food" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #fed7aa;" title="Click to view food coupon redeemed participants">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-            <div style="display:flex;flex-direction:column;gap:2px;">
-              <span style="font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;">Food Redeemed</span>
-              <span style="font-size:32px;font-weight:900;color:#c2410c;line-height:1;">${data.foodRedeemed || 0}</span>
-            </div>
-            <div class="ops-icon-container" style="background:#fff7ed;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🍽️</div>
-          </div>
-          <div style="font-size:12px;color:#94a3b8;font-weight:600;">Food coupons redeemed</div>
-        </div>
-
         <div id="ops-card-pending-kit" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #fef08a;" title="Awaiting kit collection">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
             <div style="display:flex;flex-direction:column;gap:2px;">
@@ -192,16 +181,81 @@ export async function renderAdminDashboard() {
           <div style="font-size:12px;color:#94a3b8;font-weight:600;">Awaiting kit collection</div>
         </div>
 
-        <div id="ops-card-pending-food" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #e0e7ff;" title="Awaiting food redemption">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-            <div style="display:flex;flex-direction:column;gap:2px;">
-              <span style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;">Pending Food</span>
-              <span style="font-size:32px;font-weight:900;color:#4338ca;line-height:1;">${data.pendingFood || 0}</span>
-            </div>
-            <div class="ops-icon-container" style="background:#eef2ff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🍱</div>
-          </div>
-          <div style="font-size:12px;color:#94a3b8;font-weight:600;">Awaiting food redemption</div>
-        </div>
+        ${(() => {
+          let currentRefType = data.refreshmentType || state.currentEvent?.refreshmentType;
+          try {
+            const targetId = state.currentEvent?._id || localStorage.getItem('current_event_id');
+            if (targetId) {
+              const storedRef = localStorage.getItem(`event_refreshment_type_${targetId}`);
+              if (storedRef && (!currentRefType || currentRefType === 'food')) {
+                currentRefType = storedRef;
+              }
+            }
+          } catch (e) {}
+          if (!currentRefType) currentRefType = 'food';
+          if (currentRefType === 'tea_snacks') {
+            return `
+              <div id="ops-card-tea-snacks" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #fed7aa;" title="Click to view tea & snacks distributed participants">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;">Tea & Snacks</span>
+                    <span style="font-size:32px;font-weight:900;color:#c2410c;line-height:1;">${data.teaSnacksDistributed || 0}</span>
+                  </div>
+                  <div class="ops-icon-container" style="background:#fff7ed;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">☕</div>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;font-weight:600;">Tea & snacks distributed</div>
+              </div>
+
+              <div id="ops-card-pending-tea" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #e0e7ff;" title="Awaiting tea & snacks collection">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;">Pending Tea/Snacks</span>
+                    <span style="font-size:32px;font-weight:900;color:#4338ca;line-height:1;">${data.pendingTeaSnacks || 0}</span>
+                  </div>
+                  <div class="ops-icon-container" style="background:#eef2ff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">☕</div>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;font-weight:600;">Awaiting tea collection</div>
+              </div>
+            `;
+          } else if (currentRefType === 'none') {
+            return `
+              <div class="ops-kpi-card" style="padding-top:26px; background:#f8fafc; border:1px dashed #cbd5e1;" title="No refreshments configured for this event">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">Refreshments</span>
+                    <span style="font-size:18px;font-weight:800;color:#94a3b8;line-height:1.2;margin-top:6px;">Not Configured</span>
+                  </div>
+                  <div class="ops-icon-container" style="background:#f1f5f9;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🚫</div>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;font-weight:600;">Disabled for this event</div>
+              </div>
+            `;
+          } else {
+            return `
+              <div id="ops-card-food" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #fed7aa;" title="Click to view food coupon redeemed participants">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;">Food Redeemed</span>
+                    <span style="font-size:32px;font-weight:900;color:#c2410c;line-height:1;">${data.foodRedeemed || 0}</span>
+                  </div>
+                  <div class="ops-icon-container" style="background:#fff7ed;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🍽️</div>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;font-weight:600;">Food coupons redeemed</div>
+              </div>
+
+              <div id="ops-card-pending-food" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #e0e7ff;" title="Awaiting food redemption">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;">Pending Food</span>
+                    <span style="font-size:32px;font-weight:900;color:#4338ca;line-height:1;">${data.pendingFood || 0}</span>
+                  </div>
+                  <div class="ops-icon-container" style="background:#eef2ff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">🍱</div>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;font-weight:600;">Awaiting food redemption</div>
+              </div>
+            `;
+          }
+        })()}
 
         <div id="ops-card-visitors" class="ops-kpi-card" style="padding-top:26px; cursor:pointer; background:#ffffff; border:1px solid #a7f3d0;" title="Active hall visitors">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
@@ -222,6 +276,8 @@ export async function renderAdminDashboard() {
     document.getElementById('ops-card-today-attendance')?.addEventListener('click', () => openMetricsDetailModal('attendance'));
     document.getElementById('ops-card-spot-regs')?.addEventListener('click', () => openMetricsDetailModal('total_registrations'));
     document.getElementById('ops-card-kits')?.addEventListener('click', () => openMetricsDetailModal('kits'));
+    document.getElementById('ops-card-food')?.addEventListener('click', () => openMetricsDetailModal('coupons'));
+    document.getElementById('ops-card-tea-snacks')?.addEventListener('click', () => openMetricsDetailModal('coupons'));
   } catch (error) {
     renderAdminPortalLayout('dashboard', 'Operations Dashboard', `<div class="alert alert-danger">${error.message}</div>`);
   }

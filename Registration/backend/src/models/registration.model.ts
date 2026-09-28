@@ -39,6 +39,12 @@ export interface IRegistration extends Document {
   foodRedeemedTime?: string;
   foodRedeemedBy?: string;
   foodQrExpired?: boolean;
+  teaSnacksDistributed: boolean;
+  teaSnacksDistributedAt?: Date;
+  teaSnacksDistributedDate?: string;
+  teaSnacksDistributedTime?: string;
+  teaSnacksDistributedBy?: string;
+  teaSnacksQrExpired?: boolean;
   feedback: string;
   rating?: number;
   feedbackSent?: boolean;
@@ -104,6 +110,12 @@ const registrationSchema = new Schema<IRegistration>(
     foodRedeemedTime: { type: String, default: '' },
     foodRedeemedBy: { type: String, default: '' },
     foodQrExpired: { type: Boolean, default: false },
+    teaSnacksDistributed: { type: Boolean, default: false },
+    teaSnacksDistributedAt: { type: Date },
+    teaSnacksDistributedDate: { type: String, default: '' },
+    teaSnacksDistributedTime: { type: String, default: '' },
+    teaSnacksDistributedBy: { type: String, default: '' },
+    teaSnacksQrExpired: { type: Boolean, default: false },
     feedback: { type: String, default: '' },
     rating: { type: Number, default: 5 },
     feedbackSent: { type: Boolean, default: false },
@@ -133,6 +145,7 @@ registrationSchema.index({ attended: 1 });
 registrationSchema.index({ kitIssued: 1 });
 registrationSchema.index({ foodRedeemed: 1 });
 registrationSchema.index({ couponIssued: 1 });
+registrationSchema.index({ teaSnacksDistributed: 1 });
 registrationSchema.index({ kitQrToken: 1 });
 registrationSchema.index({ foodQrToken: 1 });
 registrationSchema.index({ category: 1 });

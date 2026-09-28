@@ -24,8 +24,12 @@ export async function renderEventsList() {
 
     const events = Array.isArray(rawEvents) ? rawEvents : (rawEvents.events || []);
     events.forEach(ev => {
-      if (ev && ev._id && ev.foodRequiresAttendance === undefined) {
+      if (ev && ev._id) {
         try {
+          const storedRef = localStorage.getItem(`event_refreshment_type_${ev._id}`);
+          if (storedRef) ev.refreshmentType = storedRef;
+          const storedMeal = localStorage.getItem(`event_food_meal_option_${ev._id}`);
+          if (storedMeal) ev.foodMealOption = storedMeal;
           const storedPref = localStorage.getItem(`event_food_requires_attendance_${ev._id}`);
           if (storedPref !== null) {
             ev.foodRequiresAttendance = storedPref === 'true';
@@ -370,7 +374,13 @@ export async function renderEventCheckinQrModal(eventId) {
     document.body.appendChild(modalHolder);
   }
 
-  const eventObj = state.events?.find(e => e._id === eventId);
+  const eventObj = state.events?.find(e => String(e._id) === String(eventId));
+  if (eventObj && (!eventObj.refreshmentType || eventObj.refreshmentType === 'food')) {
+    try {
+      const storedRef = localStorage.getItem(`event_refreshment_type_${eventId}`);
+      if (storedRef) eventObj.refreshmentType = storedRef;
+    } catch (e) {}
+  }
   const eventTitle = eventObj?.title || 'Event QR Codes';
 
   let baseHost = window.location.origin;
@@ -411,9 +421,11 @@ export async function renderEventCheckinQrModal(eventId) {
             <button type="button" id="tab-qr-checkin" style="flex:1; padding:10px 14px; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; transition:all 0.2s; ${isCheckin ? 'background:#ffffff; color:#10b981; box-shadow:0 2px 8px rgba(0,0,0,0.06);' : 'background:transparent; color:#64748b;'}">
               📱 Event Check-in
             </button>
-            <button type="button" id="tab-qr-food" style="flex:1; padding:10px 14px; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; transition:all 0.2s; ${!isCheckin ? 'background:#ffffff; color:#ea580c; box-shadow:0 2px 8px rgba(0,0,0,0.06);' : 'background:transparent; color:#64748b;'}">
-              🍽️ Food Counter
-            </button>
+            ${(eventObj?.refreshmentType !== 'none') ? `
+              <button type="button" id="tab-qr-food" style="flex:1; padding:10px 14px; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; transition:all 0.2s; ${!isCheckin ? 'background:#ffffff; color:#ea580c; box-shadow:0 2px 8px rgba(0,0,0,0.06);' : 'background:transparent; color:#64748b;'}">
+                ${eventObj?.refreshmentType === 'tea_snacks' ? '☕ Tea & Snacks Counter' : '🍽️ Food Counter'}
+              </button>
+            ` : ''}
           </div>
 
           <!-- Sub-badge Pill Label -->
@@ -422,11 +434,15 @@ export async function renderEventCheckinQrModal(eventId) {
               <span style="display:inline-block; padding:6px 16px; background:#dcfce7; color:#16a34a; font-size:11px; font-weight:800; border-radius:20px; border:1px solid #bbf7d0; letter-spacing:0.5px;">
                 📱 UNIFIED EVENT CHECK-IN QR (ATTENDANCE + KIT)
               </span>
+            ` : (eventObj?.refreshmentType === 'tea_snacks' ? `
+              <span style="display:inline-block; padding:6px 16px; background:#ffedd5; color:#ea580c; font-size:11px; font-weight:800; border-radius:20px; border:1px solid #fed7aa; letter-spacing:0.5px;">
+                ☕ SEPARATE TEA & SNACKS QR
+              </span>
             ` : `
               <span style="display:inline-block; padding:6px 16px; background:#ffedd5; color:#ea580c; font-size:11px; font-weight:800; border-radius:20px; border:1px solid #fed7aa; letter-spacing:0.5px;">
                 🍽️ SEPARATE FOOD COUPON QR
               </span>
-            `}
+            `)}
           </div>
 
           <!-- Target Desk / Counter URL Box -->
@@ -461,7 +477,9 @@ export async function renderEventCheckinQrModal(eventId) {
             <p style="font-size:12.5px; color:#475569; font-weight:600; margin:0; line-height:1.5;">
               ${isCheckin 
                 ? 'Scan this QR Code at venue entrance for instant participant mobile check-in, attendance marking, and kit collection verification.'
-                : 'Scan this QR Code at food counter for instant participant mobile verification and food coupon redemption.'
+                : (eventObj?.refreshmentType === 'tea_snacks'
+                    ? 'Scan this QR Code at tea & snacks counter for instant participant mobile verification and tea & snacks distribution.'
+                    : 'Scan this QR Code at food counter for instant participant mobile verification and food coupon redemption.')
               }
             </p>
           </div>
@@ -509,7 +527,9 @@ export async function renderEventCheckinQrModal(eventId) {
         btn.innerHTML = '⏳ Downloading...';
         btn.disabled = true;
 
-        const qrHeading = currentTab === 'food' ? 'FOOD QR CODE' : 'CHECK-IN QR CODE';
+        const qrHeading = currentTab === 'food' 
+          ? (eventObj?.refreshmentType === 'tea_snacks' ? 'TEA & SNACKS QR CODE' : 'FOOD QR CODE')
+          : 'CHECK-IN QR CODE';
         const qrSubtitle = `Event: ${eventTitle}`;
         const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${currentTab}-qr.png`;
 
@@ -531,6 +551,10 @@ export async function renderEventCheckinQrModal(eventId) {
 
     document.getElementById('btn-print-pass-action')?.addEventListener('click', () => {
       const printWin = window.open('', '_blank');
+      const passBadgeLabel = isCheckin
+        ? 'UNIFIED EVENT CHECK-IN QR (ATTENDANCE + KIT)'
+        : (eventObj?.refreshmentType === 'tea_snacks' ? 'SEPARATE TEA & SNACKS QR' : 'SEPARATE FOOD COUPON QR');
+
       printWin.document.write(`
         <html>
           <head>
@@ -544,7 +568,7 @@ export async function renderEventCheckinQrModal(eventId) {
           </head>
           <body>
             <h1>${eventTitle}</h1>
-            <p>${isCheckin ? 'UNIFIED EVENT CHECK-IN QR (ATTENDANCE + KIT)' : 'SEPARATE FOOD COUPON QR'}</p>
+            <p>${passBadgeLabel}</p>
             <img src="${qrImgSrc}" />
             <p style="font-family:monospace; font-weight:bold;">${targetUrl}</p>
             <script>window.onload = function() { window.print(); window.close(); };</script>

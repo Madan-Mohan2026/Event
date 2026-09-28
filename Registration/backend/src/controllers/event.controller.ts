@@ -156,6 +156,7 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
             _id: '$eventId',
             regsCount: { $sum: 1 },
             foodCount: { $sum: { $cond: [{ $or: ['$foodRedeemed', '$couponIssued'] }, 1, 0] } },
+            teaSnacksCount: { $sum: { $cond: ['$teaSnacksDistributed', 1, 0] } },
             kitsCount: { $sum: { $cond: ['$kitIssued', 1, 0] } },
             scansCount: { $sum: { $cond: ['$attended', 1, 0] } }
           }
@@ -174,10 +175,13 @@ export const getEvents = async (req: AuthRequest, res: Response): Promise<void> 
       const resolvedBanner = resolveBannerImageProxy(ev.bannerImage, s3Banners, String(ev._id));
       return {
         ...ev,
+        refreshmentType: ev.refreshmentType || 'food',
+        foodMealOption: ev.foodMealOption || 'both',
         bannerImage: resolvedBanner || ev.bannerImage,
         bannerImageUrl: resolvedBanner || ev.bannerImageUrl,
         regsCount: s.regsCount || 0,
         foodCount: s.foodCount !== undefined ? s.foodCount : (ev.foodCount || 0),
+        teaSnacksCount: s.teaSnacksCount !== undefined ? s.teaSnacksCount : (ev.teaSnacksCount || 0),
         kitsCount: s.kitsCount !== undefined ? s.kitsCount : (ev.kitsCount || 0),
         scansCount: s.scansCount !== undefined ? s.scansCount : (ev.scansCount || 0)
       };
@@ -229,17 +233,21 @@ export const getEventById = async (req: AuthRequest, res: Response): Promise<voi
     await ensureEventQrCode(event);
 
     const evObj = event.toObject();
-    const [regsCount, foodCount, kitsCount, scansCount] = await Promise.all([
+    const [regsCount, foodCount, teaSnacksCount, kitsCount, scansCount] = await Promise.all([
       Registration.countDocuments({ eventId: event._id }),
       Registration.countDocuments({ eventId: event._id, couponIssued: true }),
+      Registration.countDocuments({ eventId: event._id, teaSnacksDistributed: true }),
       Registration.countDocuments({ eventId: event._id, kitIssued: true }),
       Registration.countDocuments({ eventId: event._id, attended: true })
     ]);
 
     res.status(200).json({
       ...evObj,
+      refreshmentType: evObj.refreshmentType || 'food',
+      foodMealOption: evObj.foodMealOption || 'both',
       regsCount,
       foodCount,
+      teaSnacksCount,
       kitsCount,
       scansCount
     });
@@ -394,7 +402,15 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       agenda: [],
       foodRequiresAttendance: req.body.foodRequiresAttendance !== undefined
         ? (req.body.foodRequiresAttendance === true || req.body.foodRequiresAttendance === 'true')
-        : true
+        : true,
+      refreshmentType: (() => {
+        const raw = String(req.body.refreshmentType || 'food').trim().toLowerCase();
+        if (raw === 'none' || raw === 'no_refreshments' || raw === 'no refreshments') return 'none';
+        if (raw === 'tea_snacks' || raw.includes('snack') || raw.includes('tea')) return 'tea_snacks';
+        return 'food';
+      })(),
+      foodMealOption: req.body.foodMealOption || 'both',
+      teaSnacksCount: 0
     });
 
     if (cleanAssignedFormId !== '') {
@@ -570,6 +586,23 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
     }
     if (req.body.foodRequiresAttendance !== undefined) {
       event.foodRequiresAttendance = req.body.foodRequiresAttendance === true || req.body.foodRequiresAttendance === 'true';
+    }
+    if (req.body.refreshmentType !== undefined) {
+      const raw = String(req.body.refreshmentType).trim().toLowerCase();
+      let normalizedType: 'none' | 'food' | 'tea_snacks' = 'food';
+      if (raw === 'none' || raw === 'no_refreshments' || raw === 'no refreshments') {
+        normalizedType = 'none';
+      } else if (raw === 'tea_snacks' || raw.includes('snack') || raw.includes('tea')) {
+        normalizedType = 'tea_snacks';
+      } else {
+        normalizedType = 'food';
+      }
+      event.refreshmentType = normalizedType;
+      (event as any).markModified('refreshmentType');
+    }
+    if (req.body.foodMealOption !== undefined) {
+      event.foodMealOption = req.body.foodMealOption;
+      (event as any).markModified('foodMealOption');
     }
 
     await event.save();
