@@ -92,12 +92,9 @@ export async function renderRegistrationsLandingView() {
           </div>
 
           <div style="display:flex; gap:8px;">
-            <button type="button" class="view-event-regs-btn" data-event-id="${ev._id}" style="flex:1; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#ffffff; border:none; padding:12px 14px; border-radius:12px; font-size:13.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 14px rgba(99,102,241,0.3);">
+            <button type="button" class="view-event-regs-btn" data-event-id="${ev._id}" style="width:100%; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#ffffff; border:none; padding:12px 14px; border-radius:12px; font-size:13.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 14px rgba(99,102,241,0.3);">
               <span>Manage Approvals</span>
               <span>→</span>
-            </button>
-            <button type="button" class="card-import-data-btn" data-event-id="${ev._id}" style="background:#eff6ff; color:#4338ca; border:1.5px solid #c7d2fe; padding:12px 14px; border-radius:12px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;" title="Upload Registered Participants (Excel / Google Sheet)">
-              <span>📥 Import</span>
             </button>
           </div>
         </div>
@@ -159,19 +156,6 @@ export async function renderRegistrationsLandingView() {
       });
     });
 
-    // Card import data buttons
-    document.querySelectorAll('.card-import-data-btn').forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const evId = this.getAttribute('data-event-id');
-        const ev = events.find(item => String(item._id) === String(evId));
-        if (ev) {
-          openBulkImportModal(ev, () => {
-            renderRegistrationsLandingView();
-          });
-        }
-      });
-    });
 
   } catch (error) {
     const app = document.getElementById('app');
