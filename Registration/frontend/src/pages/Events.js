@@ -10,7 +10,6 @@ import { renderEventCard } from '../components/events/EventCard.js';
 import { openCreateEventModal } from '../components/events/CreateEventModal.js';
 import { copyEventLink } from '../utils/eventHelpers.js';
 import { getPublicBaseUrl, buildQrUrl } from '../utils/qrHelpers.js';
-import { openBulkImportModal } from '../components/events/BulkImportModal.js';
 
 export async function renderEvents() {
   return renderEventsList();
@@ -297,37 +296,11 @@ export async function renderEventsList() {
       });
     });
 
-    // Bind Import Participants Button
-    document.querySelectorAll('.import-participants-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.getAttribute('data-id');
-        const eventObj = state.events.find(ev => String(ev._id) === String(id));
-        if (eventObj) {
-          openBulkImportModal(eventObj, () => {
-            renderEventsList();
-          });
-        }
-      });
-    });
-
     // Bind Copy Link Button
     document.querySelectorAll('.copy-link-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const id = this.getAttribute('data-id');
         copyEventLink(id);
-      });
-    });
-
-    // Bind Bulk Import Button
-    document.querySelectorAll('.import-participants-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.getAttribute('data-id');
-        const ev = state.events.find(e => String(e._id) === String(id));
-        if (ev) {
-          openBulkImportModal(ev, () => {
-            renderEventsList();
-          });
-        }
       });
     });
 
