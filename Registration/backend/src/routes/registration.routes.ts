@@ -26,6 +26,7 @@ import {
   bulkApproveParticipants,
   bulkRejectParticipants,
   sendBulkEmailController,
+  bulkImportRegistrations,
   bulkImportParticipants
 } from '../controllers/registration.controller';
 import { authenticateJWT } from '../middleware/auth.middleware';
@@ -88,6 +89,9 @@ router.post('/food/redeem', redeemFoodCoupon as any);
 // Dynamic routes — these MUST come last to avoid shadowing static routes above
 // Public: Register for a specific event
 router.post('/:eventId', registerForEvent);
+
+// Admin-only: Bulk import participants into an event
+router.post('/:eventId/bulk-import', authenticateJWT as any, bulkImportRegistrations as any);
 
 // Public: Venue entrance QR scan — mobile verification
 router.post('/:eventId/verify-mobile', verifyParticipantMobile as any);

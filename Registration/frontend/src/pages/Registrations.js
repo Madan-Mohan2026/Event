@@ -1,6 +1,6 @@
 import { state, navigate } from '../app.js';
 import { getEvents } from '../services/eventService.js';
-import { getRegistrations, getAllRegistrations, bulkApproveParticipants, bulkRejectParticipants, sendBulkEmail } from '../services/registrationService.js';
+import { getRegistrations, getAllRegistrations, bulkApproveParticipants, bulkRejectParticipants, sendBulkEmail, deleteRegistration } from '../services/registrationService.js';
 import { renderSidebar } from '../components/Sidebar.js';
 import { renderHeader } from '../components/Header.js';
 import { showAlert, exportToExcelCSV, formatISTTime, formatISTDateTime } from '../utils/helpers.js';
@@ -112,9 +112,14 @@ export async function renderRegistrationsLandingView() {
           <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Registration Management</h2>
           <p style="font-size: 13px; color: #64748b;">Select an event card below to review participant approvals and check-in status.</p>
         </div>
-        <button id="reg-export-all-btn" class="btn btn-primary" style="background-color:#10b981; border:none; padding:10px 20px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.3);">
-          📊 Download All Registrations
-        </button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="reg-import-all-btn" class="btn btn-primary" style="background-color:#4f46e5; border:none; padding:10px 18px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 14px rgba(79,70,229,0.3);">
+            📥 Bulk Import (Excel/CSV)
+          </button>
+          <button id="reg-export-all-btn" class="btn btn-primary" style="background-color:#10b981; border:none; padding:10px 20px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.3);">
+            📊 Download All Registrations
+          </button>
+        </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px;">
@@ -139,6 +144,10 @@ export async function renderRegistrationsLandingView() {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_user');
       navigate('#login');
+    });
+
+    document.getElementById('reg-import-all-btn')?.addEventListener('click', () => {
+      openBulkImportModal(null, () => renderRegistrationsLandingView());
     });
 
     document.getElementById('reg-export-all-btn')?.addEventListener('click', () => {
@@ -271,8 +280,9 @@ export async function renderEventSpecificRegistrations(eventId, filterState = {}
       const isKitIssued = r.kitIssued === true;
       const isFoodIssued = r.foodRedeemed === true || r.foodIssued === true || r.foodTaken === true;
       const appliedDate = r.registeredAt ? formatISTDateTime(r.registeredAt) : 'N/A';
-      const regId = String(r._id);
-      const shortRegId = r.registrationId || `#REG-${regId.substring(18).toUpperCase()}`;
+      const rawMongoId = r._id ? (typeof r._id === 'object' ? (r._id.$oid || r._id.toString?.() || String(r._id)) : String(r._id)) : '';
+      const regId = rawMongoId || r.id || r.registrationId || '';
+      const shortRegId = r.registrationId || (regId ? `#REG-${regId.slice(-6).toUpperCase()}` : '#REG-ID');
 
       const approvalStatus = (r.approvalStatus || 'PENDING').toUpperCase();
 
@@ -314,7 +324,10 @@ export async function renderEventSpecificRegistrations(eventId, filterState = {}
             </div>
           </td>
           <td style="padding: 14px 16px;">
-            <button class="view-reg-btn btn btn-sm btn-outline" data-id="${regId}" data-idx="${idx}" style="font-weight:700; border-radius:8px; padding:6px 14px; font-size:12px;">Details</button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="view-reg-btn btn btn-sm btn-outline" data-id="${regId}" data-idx="${idx}" style="font-weight:700; border-radius:8px; padding:6px 12px; font-size:12px;">Details</button>
+              <button class="delete-reg-btn btn btn-sm" data-id="${regId}" data-name="${name.replace(/"/g, '&quot;')}" style="font-weight:700; border-radius:8px; padding:6px 12px; font-size:12px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; cursor:pointer;" title="Delete Participant">Delete</button>
+            </div>
           </td>
         </tr>
       `;
@@ -434,9 +447,9 @@ export async function renderEventSpecificRegistrations(eventId, filterState = {}
             </div>
             <p style="font-size: 13px; color: #64748b; margin:4px 0 0;">Participant Registration & Bulk Email/Approval Portal.</p>
           </div>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <button id="reg-import-btn" class="btn btn-primary" style="background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border:none; padding:9px 18px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,0.3);">
-              📥 Upload Data (Excel / Sheet)
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="reg-import-btn" class="btn btn-primary" style="background-color:#4f46e5; border:none; padding:9px 18px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 14px rgba(79,70,229,0.3);">
+              📥 Bulk Import (Excel/CSV)
             </button>
             <button id="reg-export-btn" class="btn btn-primary" style="background-color:#10b981; border:none; padding:9px 20px; border-radius:10px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.3);">
               📊 Download Excel Report
@@ -961,6 +974,10 @@ RTIH Event Management Team`;
       navigate('#registrations');
     });
 
+    document.getElementById('reg-import-btn')?.addEventListener('click', () => {
+      openBulkImportModal(eventId, () => renderEventSpecificRegistrations(eventId, filters));
+    });
+
     document.getElementById('reg-export-btn')?.addEventListener('click', () => {
       exportToExcelCSV(registrations, `${(selectedEvent.title || 'Event').replace(/\s+/g, '_')}_Registrations.csv`);
     });
@@ -1057,6 +1074,30 @@ RTIH Event Management Team`;
         e.preventDefault();
         e.stopPropagation();
         handleViewDetails(this);
+      };
+    });
+
+    document.querySelectorAll('.delete-reg-btn').forEach(btn => {
+      btn.onclick = async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = this.getAttribute('data-id');
+        const name = this.getAttribute('data-name') || 'this participant';
+        if (!confirm(`Are you sure you want to delete registration for "${name}"?\nThis action cannot be undone.`)) {
+          return;
+        }
+        try {
+          await deleteRegistration(id);
+          showAlert(`Successfully deleted registration for ${name}.`, 'success');
+          const currentEvtId = eventId || window.location.hash.split('/')[1] || null;
+          if (currentEvtId && currentEvtId !== 'all') {
+            renderEventSpecificRegistrations(currentEvtId);
+          } else {
+            renderRegistrations();
+          }
+        } catch (err) {
+          showAlert('Failed to delete registration: ' + (err.message || 'Unknown error'), 'danger');
+        }
       };
     });
 
@@ -1213,8 +1254,11 @@ function openRegistrationDetailsModal(reg, formSchema = []) {
       ${dynamicFieldsHTML}
     </div>
 
-    <!-- Footer Back Button -->
-    <div style="margin-top:24px; text-align:right; border-top:1px solid #e2e8f0; padding-top:16px;">
+    <!-- Footer Action Buttons -->
+    <div style="margin-top:24px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:16px;">
+      <button type="button" id="delete-modal-reg-btn" data-id="${reg._id || reg.id}" data-name="${pName.replace(/"/g, '&quot;')}" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+        🗑 Delete Participant
+      </button>
       <button type="button" id="close-details-modal-btn" style="background:#f1f5f9; color:#475569; border:none; padding:10px 20px; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer;">
         ← Back to Registrations List
       </button>
@@ -1234,4 +1278,25 @@ function openRegistrationDetailsModal(reg, formSchema = []) {
 
   const closeBtn2 = document.getElementById('reg-modal-close-btn');
   if (closeBtn2) closeBtn2.onclick = () => { modal.style.display = 'none'; };
+
+  const deleteModalBtn = document.getElementById('delete-modal-reg-btn');
+  if (deleteModalBtn) {
+    deleteModalBtn.onclick = async () => {
+      const id = deleteModalBtn.getAttribute('data-id');
+      const name = deleteModalBtn.getAttribute('data-name') || 'this participant';
+      if (!confirm(`Are you sure you want to delete registration for "${name}"?\nThis action cannot be undone.`)) {
+        return;
+      }
+      try {
+        await deleteRegistration(id);
+        modal.style.display = 'none';
+        showAlert(`Successfully deleted registration for ${name}.`, 'success');
+        const hash = window.location.hash || '#registrations';
+        const targetEvtId = hash.split('/')[1] || null;
+        if (targetEvtId) renderEventSpecificRegistrations(targetEvtId);
+      } catch (err) {
+        showAlert('Failed to delete registration: ' + (err.message || 'Unknown error'), 'danger');
+      }
+    };
+  }
 }

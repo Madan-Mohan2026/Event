@@ -158,6 +158,75 @@ export function extractParticipantDetailsFromFormData(formData: Record<string, a
   };
 }
 
+function rawValueToStringBackend(rawVal: any): string {
+  if (rawVal === undefined || rawVal === null) return '';
+  if (typeof rawVal === 'number') {
+    if (Number.isInteger(rawVal)) {
+      return String(BigInt(rawVal));
+    }
+    const str = String(rawVal);
+    if (str.includes('e') || str.includes('E')) {
+      return rawVal.toFixed(0);
+    }
+    return str.trim();
+  }
+  return String(rawVal).trim();
+}
+
+/**
+ * Helper to normalize header keys and extract participant fields for bulk import
+ */
+export function extractParticipantFields(item: any) {
+  if (!item || typeof item !== 'object') {
+    return { name: '', rawPhone: '', email: '', org: '', desig: '' };
+  }
+
+  let name = '';
+  let rawPhone = '';
+  let email = '';
+  let org = '';
+  let desig = '';
+
+  const NAME_KEYS = ['participantname', 'employeename', 'name', 'fullname', 'applicantname', 'membername', 'personname', 'employee', 'participant_name'];
+  const PHONE_KEYS = ['mobile', 'mobilenumber', 'mobileno', 'contactno', 'contactnumber', 'phone', 'phonenumber', 'phoneno', 'contact', 'contactn', 'cell', 'cellphone', 'whatsapp', 'whatsappnumber', 'telephone', 'participantphone', 'participantmobile', 'phone_number'];
+  const EMAIL_KEYS = ['email', 'participantemail', 'emailaddress', 'mail', 'emailid'];
+  const ORG_KEYS = ['organization', 'company', 'org', 'companyname', 'institution', 'college', 'university'];
+  const DESIG_KEYS = ['designation', 'role', 'title', 'jobtitle', 'position'];
+
+  for (const [key, rawVal] of Object.entries(item)) {
+    if (rawVal === undefined || rawVal === null) continue;
+    const val = rawValueToStringBackend(rawVal);
+    if (!val) continue;
+
+    const normKey = String(key)
+      .replace(/^\uFEFF/, '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '');
+
+    if (!name && NAME_KEYS.includes(normKey)) {
+      name = val;
+    } else if (!rawPhone && PHONE_KEYS.includes(normKey)) {
+      rawPhone = val;
+    } else if (!email && EMAIL_KEYS.includes(normKey)) {
+      email = val;
+    } else if (!org && ORG_KEYS.includes(normKey)) {
+      org = val;
+    } else if (!desig && DESIG_KEYS.includes(normKey)) {
+      desig = val;
+    }
+  }
+
+  // Fallbacks if not extracted via normalized loop
+  if (!name) name = rawValueToStringBackend(item.name || item.participantName || item.fullName || item['Employee Name'] || item['Name']);
+  if (!rawPhone) rawPhone = rawValueToStringBackend(item.phone || item.participantPhone || item.mobile || item.contact || item['Contact No'] || item['Mobile']);
+  if (!email) email = rawValueToStringBackend(item.email || item.participantEmail || item['Email']);
+  if (!org) org = rawValueToStringBackend(item.organization || item.company || item['Organization']);
+  if (!desig) desig = rawValueToStringBackend(item.designation || item.role || item['Designation']);
+
+  return { name, rawPhone, email, org, desig };
+}
+
 /**
  * Helper to generate structured Registration ID: REG-{CLEAN_CODE}-{4_DIGIT_ID}
  * First digit of 4-digit number = Event Order (1, 2, 3...)
@@ -2757,21 +2826,31 @@ export const deleteRegistration = async (req: AuthRequest, res: Response): Promi
   try {
     const { id } = req.params;
 
-    if (!isValidObjectId(id)) {
-      res.status(400).json({ error: 'Invalid registration ID.' });
+    if (!id || id === 'undefined' || id === 'null') {
+      res.status(400).json({ error: 'Registration ID is required.' });
       return;
     }
 
-    const registration = await Registration.findById(id);
+    let registration: any = null;
+
+    if (isValidObjectId(id)) {
+      registration = await Registration.findById(id);
+    }
+
+    if (!registration) {
+      registration = await Registration.findOne({ registrationId: id });
+    }
+
     if (!registration) {
       res.status(404).json({ error: 'Registration record not found.' });
       return;
     }
 
+    const mongoId = registration._id;
     const eventId = registration.eventId;
 
     // Delete registration document
-    await Registration.findByIdAndDelete(id);
+    await Registration.findByIdAndDelete(mongoId);
 
     // Decrement event counts if applicable
     if (eventId) {
@@ -2783,7 +2862,7 @@ export const deleteRegistration = async (req: AuthRequest, res: Response): Promi
       await Event.findByIdAndUpdate(eventId, { $inc: incFields });
     }
 
-    res.status(200).json({ message: 'Participant registration deleted successfully.', id });
+    res.status(200).json({ message: 'Participant registration deleted successfully.', id: String(mongoId) });
   } catch (error: any) {
     console.error('[registration]: Error in deleteRegistration:', error.message);
     res.status(500).json({ error: error.message || 'Failed to delete participant registration.' });
@@ -3394,7 +3473,8 @@ export const sendBulkEmailController = async (req: AuthRequest, res: Response): 
 export const bulkImportParticipants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const eventId = req.params.eventId || req.body.eventId;
-    const { participants, defaultApprovalStatus = 'APPROVED', sendEmail = false } = req.body;
+    const { participants, defaultStatus, defaultApprovalStatus = 'APPROVED', sendEmail = false } = req.body;
+    const finalDefaultStatus = defaultStatus || defaultApprovalStatus;
 
     if (!isValidObjectId(eventId)) {
       res.status(400).json({ error: 'Valid eventId is required.' });
@@ -3412,128 +3492,141 @@ export const bulkImportParticipants = async (req: AuthRequest, res: Response): P
       return;
     }
 
-    const adminUsername = req.user?.username || 'Super Admin';
-    const approvalStatus = defaultApprovalStatus === 'PENDING' ? 'PENDING' : 'APPROVED';
-    const now = new Date();
-    const hostUrl = getAccessibleHostUrl(req);
-
-    // Fetch existing registrations to check duplicates in memory for efficiency
-    const existingRegs = await Registration.find({ eventId }).select('participantEmail participantPhone participantPhoneNormalized').lean();
-    const existingEmails = new Set(existingRegs.map(r => (r.participantEmail || '').toLowerCase()).filter(Boolean));
-    const existingPhones = new Set(existingRegs.map(r => r.participantPhoneNormalized || r.participantPhone || '').filter(Boolean));
-
-    const importedRecords: any[] = [];
-    const skippedRecords: any[] = [];
-
-    // Current total count for generating structured IDs
-    let currentCount = await Registration.countDocuments({ eventId });
-    const allEventsSorted = await Event.find({}).sort({ createdAt: 1 }).select('_id');
-    const foundIndex = allEventsSorted.findIndex(e => String(e._id) === String(eventId));
-    const eventOrder = foundIndex >= 0 ? (foundIndex + 1) : 1;
-    const cleanCode = String(event.title || 'EVT')
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .substring(0, 4) || 'EVT';
-
-    const targetEvtId = String(event._id);
-    const kitWebUrl = `${hostUrl}/#kit-checkin/${targetEvtId}`;
-    const foodWebUrl = `${hostUrl}/#food-checkin/${targetEvtId}`;
-    const [kitDataUrl, foodDataUrl] = await Promise.all([
-      generateQrDataUrl(kitWebUrl).catch(() => ''),
-      generateQrDataUrl(foodWebUrl).catch(() => '')
-    ]);
-
-    for (const rawRow of participants) {
-      if (!rawRow || typeof rawRow !== 'object') continue;
-
-      const extracted = extractParticipantDetailsFromFormData(rawRow);
-      const pName = extracted.participantName || 'Participant';
-      const pEmail = extracted.participantEmail || '';
-      const pPhone = extracted.participantPhone || '';
-      const normPhone = normalizePhoneNumber(pPhone);
-
-      // Check duplicates
-      if (pEmail && existingEmails.has(pEmail)) {
-        skippedRecords.push({ name: pName, email: pEmail, reason: 'Duplicate email' });
-        continue;
-      }
-      if (normPhone && existingPhones.has(normPhone)) {
-        skippedRecords.push({ name: pName, phone: pPhone, reason: 'Duplicate phone' });
-        continue;
-      }
-
-      currentCount++;
-      const numericId = (eventOrder * 1000) + currentCount;
-      const regId = `REG-${cleanCode}-${numericId}`;
-
-      const submittedFields = Object.entries(rawRow).map(([k, v]) => ({
-        fieldId: k,
-        label: k,
-        type: 'text',
-        value: v
-      }));
-
-      const newReg = new Registration({
-        registrationId: regId,
-        eventId: event._id,
-        eventTitle: event.title || 'Event',
-        eventCode: cleanCode,
-        formId: event.assignedFormId || String(event._id),
-        participantName: pName,
-        participantEmail: pEmail,
-        participantPhone: pPhone,
-        participantPhoneNormalized: normPhone,
-        participant: {
-          fullName: pName,
-          email: pEmail,
-          phone: pPhone
-        },
-        formData: rawRow,
-        submittedFields,
-        approvalStatus,
-        approvedAt: approvalStatus === 'APPROVED' ? now : undefined,
-        approvedBy: approvalStatus === 'APPROVED' ? adminUsername : '',
-        registeredAt: now,
-        attended: false,
-        kitIssued: false,
-        couponIssued: false,
-        foodRedeemed: false,
-        feedback: '',
-        category: rawRow.category || rawRow.Category || event.category || 'General',
-        kitQrToken: '',
-        kitQrCodeDataUrl: kitDataUrl,
-        foodQrToken: '',
-        foodQrCodeDataUrl: foodDataUrl
-      });
-
-      newReg.kitQrToken = String(newReg._id);
-      newReg.foodQrToken = String(newReg._id);
-
-      await newReg.save();
-      importedRecords.push(newReg);
-
-      if (pEmail) existingEmails.add(pEmail);
-      if (normPhone) existingPhones.add(normPhone);
-
-      if (sendEmail && approvalStatus === 'APPROVED' && pEmail) {
-        sendApprovalEmail(
-          {
-            participantName: pName,
-            participantEmail: pEmail,
-            registrationId: regId
-          },
-          {
-            title: event.title,
-            date: event.date,
-            location: event.location,
-            supportEmail: event.supportEmail
-          }
-        ).catch(() => null);
+    // Permission check for event admin
+    const isSuperAdmin = !req.user || req.user.role === 'super_admin' || (req.user.role as any) === 'superadmin';
+    if (!isSuperAdmin && req.user) {
+      const userDoc = await User.findById(req.user.id).lean();
+      const assignedIds = userDoc?.assignedEventIds?.map(id => String(id)) || (userDoc?.assignedEventId ? [String(userDoc.assignedEventId)] : []);
+      if (!assignedIds.includes(String(eventId))) {
+        res.status(403).json({ error: 'You do not have permission to import participants into this event.' });
+        return;
       }
     }
 
-    if (importedRecords.length > 0) {
-      await Event.findByIdAndUpdate(eventId, { $inc: { registeredCount: importedRecords.length } }).catch(() => null);
+    // Get existing registrations for duplicate check strictly within THIS eventId
+    const existingRegs = await Registration.find({ eventId }).lean();
+    const dbPhonesSet = new Set<string>();
+    const dbEmailsSet = new Set<string>();
+
+    existingRegs.forEach((r: any) => {
+      if (r.participantPhoneNormalized) dbPhonesSet.add(r.participantPhoneNormalized);
+      if (r.participantPhone) dbPhonesSet.add(normalizePhoneNumber(r.participantPhone));
+      if (r.participantEmail) dbEmailsSet.add(String(r.participantEmail).toLowerCase().trim());
+    });
+
+    const batchPhonesSet = new Set<string>();
+    const batchEmailsSet = new Set<string>();
+
+    let importedCount = 0;
+    let duplicateCount = 0;
+    let invalidCount = 0;
+
+    const rowDetails: Array<{ rowNumber: number; name: string; phone: string; email: string; status: string; reason: string }> = [];
+    const newDocs: any[] = [];
+
+    const startCounter = existingRegs.length + 1;
+    const cleanSlug = String(event.title || 'EVT').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
+
+    for (let i = 0; i < participants.length; i++) {
+      const rowNum = i + 1;
+      const item = participants[i];
+      const { name, rawPhone, email, org, desig } = extractParticipantFields(item);
+
+      if (!name && !rawPhone && !email && !org && !desig) {
+        continue;
+      }
+
+      if (!rawPhone && !email) {
+        invalidCount++;
+        rowDetails.push({ rowNumber: rowNum, name: name || 'N/A', phone: 'N/A', email: 'N/A', status: 'invalid', reason: 'Phone or email is required' });
+        continue;
+      }
+
+      const normPhone = normalizePhoneNumber(rawPhone);
+      const normEmail = email ? email.toLowerCase() : '';
+
+      // 1. Check duplicate against DB for this eventId
+      if (normPhone && dbPhonesSet.has(normPhone)) {
+        duplicateCount++;
+        rowDetails.push({ rowNumber: rowNum, name, phone: rawPhone, email, status: 'duplicate', reason: 'Participant already registered for this event (Mobile match)' });
+        continue;
+      }
+      if (normEmail && dbEmailsSet.has(normEmail)) {
+        duplicateCount++;
+        rowDetails.push({ rowNumber: rowNum, name, phone: rawPhone, email, status: 'duplicate', reason: 'Participant already registered for this event (Email match)' });
+        continue;
+      }
+
+      // 2. Check duplicate within uploaded file batch
+      if (normPhone && batchPhonesSet.has(normPhone)) {
+        duplicateCount++;
+        rowDetails.push({ rowNumber: rowNum, name, phone: rawPhone, email, status: 'duplicate', reason: 'Same mobile number appears multiple times in uploaded file' });
+        continue;
+      }
+      if (normEmail && batchEmailsSet.has(normEmail)) {
+        duplicateCount++;
+        rowDetails.push({ rowNumber: rowNum, name, phone: rawPhone, email, status: 'duplicate', reason: 'Same email address appears multiple times in uploaded file' });
+        continue;
+      }
+
+      if (normPhone) batchPhonesSet.add(normPhone);
+      if (normEmail) batchEmailsSet.add(normEmail);
+
+      const counter = startCounter + newDocs.length;
+      const regId = `REG-${cleanSlug || 'EVT'}-${1000 + counter}`;
+
+      const formDataObj: Record<string, any> = {
+        'Full Name': name || 'Participant',
+        'Participant Name': name || 'Participant',
+        'Phone': rawPhone,
+        'Mobile': rawPhone,
+        'Email': email,
+        'Organization': org,
+        'Designation': desig
+      };
+
+      Object.keys(item).forEach(k => {
+        if (item[k] !== undefined && item[k] !== null && item[k] !== '') {
+          formDataObj[k] = item[k];
+        }
+      });
+
+      const approvalStatus = (finalDefaultStatus || 'APPROVED').toUpperCase() === 'PENDING' ? 'PENDING' : 'APPROVED';
+
+      newDocs.push({
+        registrationId: regId,
+        eventId: event._id,
+        eventTitle: event.title || 'Event',
+        eventCode: cleanSlug,
+        formId: event.assignedFormId || String(event._id),
+        participantName: name || 'Participant',
+        participantEmail: email,
+        participantPhone: rawPhone,
+        participantPhoneNormalized: normPhone,
+        participant: {
+          fullName: name || 'Participant',
+          email: email,
+          phone: rawPhone
+        },
+        formData: formDataObj,
+        submittedFields: [],
+        approvalStatus,
+        approvedAt: approvalStatus === 'APPROVED' ? new Date() : undefined,
+        approvedBy: approvalStatus === 'APPROVED' ? (req.user?.username || 'Admin') : '',
+        registeredAt: new Date(),
+        attended: false,
+        kitIssued: false,
+        couponIssued: false,
+        foodRedeemed: false
+      });
+
+      rowDetails.push({ rowNumber: rowNum, name, phone: rawPhone, email, status: 'valid', reason: 'Valid' });
+      importedCount++;
+    }
+
+    if (newDocs.length > 0) {
+      await Registration.insertMany(newDocs);
+      await Event.findByIdAndUpdate(eventId, { $inc: { registeredCount: newDocs.length } }).catch(() => {});
       clearDashboardCache();
       clearEventsCache();
       broadcastRealtimeEvent('STATS_UPDATED', { action: 'BULK_IMPORT', eventId });
@@ -3542,23 +3635,26 @@ export const bulkImportParticipants = async (req: AuthRequest, res: Response): P
     if (req.user) {
       await logAdminAction(
         req.user.id,
-        adminUsername,
-        'BULK_IMPORT_PARTICIPANTS',
-        `Imported ${importedRecords.length} participant(s) via Excel/Google Sheet for event '${event.title}'. Skipped ${skippedRecords.length} duplicate(s).`,
+        req.user.username,
+        'BULK_IMPORT_REGISTRATIONS',
+        { eventId: event._id, title: event.title, importedCount, duplicateCount, invalidCount },
         req.ip || 'unknown'
-      );
+      ).catch(() => {});
     }
 
     res.status(200).json({
       success: true,
-      message: `Successfully imported ${importedRecords.length} participant(s). ${skippedRecords.length > 0 ? `Skipped ${skippedRecords.length} duplicate(s).` : ''}`,
-      importedCount: importedRecords.length,
-      skippedCount: skippedRecords.length,
-      skippedDetails: skippedRecords
+      importedCount,
+      skippedCount: duplicateCount + invalidCount,
+      duplicateCount,
+      invalidCount,
+      totalProcessed: participants.length,
+      details: rowDetails,
+      message: `Import completed for "${event.title}": ${importedCount} imported, ${duplicateCount} duplicates skipped, ${invalidCount} invalid rows.`
     });
-  } catch (err: any) {
-    console.error('[bulkImportParticipants Error]:', err);
-    res.status(500).json({ error: err.message || 'Failed to bulk import participants.' });
+  } catch (error: any) {
+    console.error('❌ [bulkImportRegistrations ERROR]:', error);
+    res.status(500).json({ error: error.message || 'Failed to bulk import participants.' });
   }
 };
 

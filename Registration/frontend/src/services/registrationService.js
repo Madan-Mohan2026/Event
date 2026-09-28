@@ -201,15 +201,17 @@ export async function sendBulkEmail(registrationIds, subject, bodyText) {
   return data;
 }
 
-export async function bulkImportParticipants(eventId, participants, defaultApprovalStatus = 'APPROVED', sendEmail = false) {
-  const res = await apiFetch(`/api/registrations/events/${eventId}/bulk-import`, {
+export async function bulkImportRegistrations(eventId, participants, defaultStatus = 'APPROVED') {
+  const res = await apiFetch(`/api/registrations/${eventId}/bulk-import`, {
     method: 'POST',
-    body: JSON.stringify({ participants, defaultApprovalStatus, sendEmail })
+    body: JSON.stringify({ participants, defaultStatus })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to bulk import participants');
   return data;
 }
 
-
+export async function bulkImportParticipants(eventId, participants, defaultApprovalStatus = 'APPROVED', sendEmail = false) {
+  return bulkImportRegistrations(eventId, participants, defaultApprovalStatus);
+}
 
